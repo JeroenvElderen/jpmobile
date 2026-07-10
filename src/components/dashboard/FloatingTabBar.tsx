@@ -3,7 +3,7 @@ import { useRouter } from "expo-router";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-type RouteKey = "home" | "bookings" | "dogs" | "profile";
+type RouteKey = "home" | "bookings" | "dogs" | "clients";
 
 type Props = {
   activeRoute?: RouteKey;
@@ -37,7 +37,11 @@ export default function FloatingTabBar({ activeRoute = "home" }: Props) {
           onPress={() => router.push("/admin/dogs")}
         />
 
-        <TabButton icon="person-outline" active={false} onPress={() => {}} />
+        <TabButton
+          icon="person-outline"
+          active={activeRoute === "clients"}
+          onPress={() => router.push("/admin/clients")}
+        />
       </View>
     </SafeAreaView>
   );
