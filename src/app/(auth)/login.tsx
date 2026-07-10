@@ -1,11 +1,15 @@
 import { useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
 
 import { Button, Card, Divider, Input, Screen, Typography } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { theme } from '@/lib/theme';
 
+const ADMIN_EMAIL = 'jeroen@jeroenandpaws.com';
+
 export default function LoginScreen() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | undefined>();
@@ -22,7 +26,7 @@ export default function LoginScreen() {
     setIsSubmitting(true);
     setError(undefined);
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({
       email: normalizedEmail,
       password,
     });
@@ -34,7 +38,14 @@ export default function LoginScreen() {
       return;
     }
 
-    Alert.alert('Logged in', 'You have successfully logged in.');
+    const authenticatedEmail = data.user?.email?.toLowerCase() ?? normalizedEmail.toLowerCase();
+
+    if (authenticatedEmail === ADMIN_EMAIL) {
+      router.replace('/admin');
+      return;
+    }
+
+    router.replace('/');
   };
 
   return (
