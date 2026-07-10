@@ -22,10 +22,26 @@ export default function RootLayout() {
           name="(auth)/register"
           options={{ title: "Create Account" }}
         />
-        <Stack.Screen name="admin" options={{ headerShown: false }} />
-        <Stack.Screen name="admin/bookings" options={{ headerShown: false }} />
-        <Stack.Screen name="admin/dogs" options={{ headerShown: false }} />
-        <Stack.Screen name="admin/clients" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="admin"
+          options={{ animation: "none", headerShown: false }}
+        />
+        <Stack.Screen
+          name="admin/bookings"
+          options={{ animation: "none", headerShown: false }}
+        />
+        <Stack.Screen
+          name="admin/dogs"
+          options={{ animation: "none", headerShown: false }}
+        />
+        <Stack.Screen
+          name="admin/clients"
+          options={{ animation: "none", headerShown: false }}
+        />
+        <Stack.Screen
+          name="admin/galleries"
+          options={{ animation: "none", headerShown: false }}
+        />
       </Stack>
     </>
   );
