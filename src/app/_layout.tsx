@@ -24,7 +24,7 @@ export default function RootLayout() {
         />
         <Stack.Screen name="admin" options={{ headerShown: false }} />
         <Stack.Screen name="admin/bookings" options={{ headerShown: false }} />
-        <Stack.Screen name="dogs" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/dogs" options={{ headerShown: false }} />
       </Stack>
     </>
   );

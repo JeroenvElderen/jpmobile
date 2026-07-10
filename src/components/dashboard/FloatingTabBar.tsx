@@ -31,7 +31,11 @@ export default function FloatingTabBar({ activeRoute = "home" }: Props) {
           <Ionicons name="add" size={34} color="#FFF" />
         </TouchableOpacity>
 
-        <TabButton icon="paw-outline" active={false} onPress={() => {}} />
+        <TabButton
+          icon="paw-outline"
+          active={activeRoute === "dogs"}
+          onPress={() => router.push("/admin/dogs")}
+        />
 
         <TabButton icon="person-outline" active={false} onPress={() => {}} />
       </View>
