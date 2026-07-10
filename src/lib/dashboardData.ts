@@ -1,0 +1,32 @@
+export const schedule = [
+  {
+    id: "1",
+    time: "10:00",
+    period: "AM",
+    dog: "Max",
+    service: "Dog Walk",
+    status: "Confirmed",
+    location: "Dublin 6",
+    avatar: "https://placedog.net/200/200?id=1",
+  },
+  {
+    id: "2",
+    time: "1:00",
+    period: "PM",
+    dog: "Luna",
+    service: "Training Session",
+    status: "Pending",
+    location: "Dublin 8",
+    avatar: "https://placedog.net/200/200?id=2",
+  },
+  {
+    id: "3",
+    time: "4:00",
+    period: "PM",
+    dog: "Buddy",
+    service: "Drop-in Visit",
+    status: "Confirmed",
+    location: "Dublin 6W",
+    avatar: "https://placedog.net/200/200?id=3",
+  },
+];

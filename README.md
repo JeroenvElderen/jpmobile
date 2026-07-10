@@ -136,3 +136,85 @@ jeroenandpaws-mobile
 └─ tsconfig.json
 
 ```
+```
+jeroenandpaws-mobile
+├─ .claude
+│  └─ settings.json
+├─ AGENTS.md
+├─ app.json
+├─ assets
+│  ├─ expo.icon
+│  │  ├─ Assets
+│  │  │  ├─ expo-symbol 2.svg
+│  │  │  └─ grid.png
+│  │  └─ icon.json
+│  └─ images
+│     ├─ expo-badge-white.png
+│     ├─ expo-badge.png
+│     ├─ expo-logo.png
+│     ├─ favicon.png
+│     ├─ icon.png
+│     ├─ logo-glow.png
+│     ├─ react-logo.png
+│     ├─ react-logo@2x.png
+│     ├─ react-logo@3x.png
+│     ├─ splash-icon.png
+│     ├─ tabIcons
+│     │  ├─ explore.png
+│     │  ├─ explore@2x.png
+│     │  ├─ explore@3x.png
+│     │  ├─ home.png
+│     │  ├─ home@2x.png
+│     │  └─ home@3x.png
+│     └─ tutorial-web.png
+├─ CLAUDE.md
+├─ LICENSE
+├─ package-lock.json
+├─ package.json
+├─ README.md
+├─ scripts
+│  └─ reset-project.js
+├─ src
+│  ├─ app
+│  │  ├─ (auth)
+│  │  │  ├─ login.tsx
+│  │  │  └─ register.tsx
+│  │  ├─ (tabs)
+│  │  ├─ admin.tsx
+│  │  ├─ index.tsx
+│  │  └─ _layout.tsx
+│  ├─ components
+│  │  ├─ bookings
+│  │  ├─ cards
+│  │  ├─ dashboard
+│  │  ├─ forms
+│  │  ├─ navigation
+│  │  ├─ profile
+│  │  └─ ui
+│  │     ├─ Button.tsx
+│  │     ├─ Card.tsx
+│  │     ├─ Divider.tsx
+│  │     ├─ index.ts
+│  │     ├─ Input.tsx
+│  │     ├─ Loading.tsx
+│  │     ├─ Screen.tsx
+│  │     └─ Typography.tsx
+│  ├─ contexts
+│  │  └─ AuthContext.ts
+│  ├─ hooks
+│  │  └─ useAuth.ts
+│  ├─ lib
+│  │  ├─ constants.ts
+│  │  ├─ supabase.ts
+│  │  └─ theme.ts
+│  ├─ providers
+│  │  ├─ AuthProvider.tsx
+│  │  ├─ QueryProvider.tsx
+│  │  └─ ThemeProvider.tsx
+│  ├─ services
+│  ├─ store
+│  ├─ types
+│  └─ utils
+└─ tsconfig.json
+
+```
