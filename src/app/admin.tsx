@@ -9,25 +9,21 @@ import { View, ScrollView, StyleSheet } from "react-native";
 
 export default function AdminScreen() {
   return (
-     <View style={{ flex: 1, backgroundColor: "#F8F9FD" }}>
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={{
-        paddingHorizontal: 22,
-        paddingTop: 60,
-        paddingBottom: 130,
-      }}
-    >
-      <DashboardHeader />
-      <DashboardStats />
-      <ScheduleCard />
-      <PerformanceCard />
-      <QuickActions />
-      <RecentActivity />
-    </ScrollView>
+    <View style={styles.container}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}
+      >
+        <DashboardHeader />
+        <DashboardStats />
+        <ScheduleCard />
+        <PerformanceCard />
+        <QuickActions />
+        <RecentActivity />
+      </ScrollView>
 
-    <FloatingTabBar />
-  </View>
+      <FloatingTabBar activeRoute="home" />
+    </View>   
   );
 }
 
@@ -36,10 +32,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F8F9FD",
   },
-
   content: {
     paddingHorizontal: 22,
     paddingTop: 60,
-    paddingBottom: 40,
+    paddingBottom: 130,
   },
 });

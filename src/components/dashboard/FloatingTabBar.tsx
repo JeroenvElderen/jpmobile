@@ -1,51 +1,39 @@
-import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { usePathname, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-export default function FloatingTabBar() {
-  const router = useRouter();
-  const pathname = usePathname();
+type RouteKey = "home" | "bookings" | "dogs" | "profile";
 
-  const active = (route: string) => pathname === route;
+type Props = {
+  activeRoute?: RouteKey;
+};
+
+export default function FloatingTabBar({ activeRoute = "home" }: Props) {
+  const router = useRouter();
 
   return (
-    <SafeAreaView
-      pointerEvents="box-none"
-      style={styles.safeArea}
-    >
+    <SafeAreaView pointerEvents="box-none" style={styles.safeArea}>
       <View style={styles.container}>
         <TabButton
-          icon="home"
-          active={active("/admin")}
+          icon="home-outline"
+          active={activeRoute === "home"}
           onPress={() => router.push("/admin")}
         />
 
-        <TabButton
-          icon="calendar-outline"
-          active={false}
-          onPress={() => {}}
+        <TabButton 
+            icon="calendar-outline"
+            active={activeRoute === "bookings"}
+            onPress={() => router.push("/admin/bookings")}
         />
 
         <TouchableOpacity style={styles.fab}>
-          <Ionicons
-            name="add"
-            size={34}
-            color="#FFF"
-          />
+          <Ionicons name="add" size={34} color="#FFF" />
         </TouchableOpacity>
 
-        <TabButton
-          icon="paw-outline"
-          active={false}
-          onPress={() => {}}
-        />
+        <TabButton icon="paw-outline" active={false} onPress={() => {}} />
 
-        <TabButton
-          icon="person-outline"
-          active={false}
-          onPress={() => {}}
-        />
+        <TabButton icon="person-outline" active={false} onPress={() => {}} />
       </View>
     </SafeAreaView>
   );
@@ -57,25 +45,14 @@ type TabButtonProps = {
   onPress: () => void;
 };
 
-function TabButton({
-  icon,
-  active,
-  onPress,
-}: TabButtonProps) {
+function TabButton({ icon, active, onPress }: TabButtonProps) {
   return (
     <TouchableOpacity
       onPress={onPress}
-      style={[
-        styles.tab,
-        active && styles.activeTab,
-      ]}
+      style={[styles.tab, active && styles.activeTab]}
       activeOpacity={0.8}
     >
-      <Ionicons
-        name={icon}
-        size={25}
-        color={active ? "#5B3DF5" : "#9CA3AF"}
-      />
+      <Ionicons name={icon} size={25} color={active ? "#5B3DF5" : "#9CA3AF"} />
     </TouchableOpacity>
   );
 }
