@@ -39,7 +39,7 @@ export default function ClientFloatingTabBar({ activeRoute = "home" }: Props) {
         <TabButton
           icon="paw-outline"
           active={activeRoute === "pets"}
-          onPress={() => navigate("/client")}
+          onPress={() => navigate("/client/dogs")}
         />
 
         <View style={styles.moreGroup}>
