@@ -3,7 +3,13 @@ import { useRouter } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-type RouteKey = "home" | "bookings" | "pets" | "activity" | "profile";
+type RouteKey =
+  | "home"
+  | "bookings"
+  | "pets"
+  | "activity"
+  | "profile"
+  | "galleries";
 
 type Props = {
   activeRoute?: RouteKey;
@@ -11,7 +17,10 @@ type Props = {
 
 export default function ClientFloatingTabBar({ activeRoute = "home" }: Props) {
   const router = useRouter();
-  const moreActive = activeRoute === "activity" || activeRoute === "profile";
+  const moreActive =
+    activeRoute === "activity" ||
+    activeRoute === "profile" ||
+    activeRoute === "galleries";
 
   const navigate = (href: Parameters<typeof router.replace>[0]) => {
     router.replace(href);
@@ -45,6 +54,12 @@ export default function ClientFloatingTabBar({ activeRoute = "home" }: Props) {
         <View style={styles.moreGroup}>
           {moreActive && (
             <View style={styles.moreMenu}>
+                <MoreButton
+                icon="images-outline"
+                label="Galleries"
+                active={activeRoute === "galleries"}
+                onPress={() => navigate("/client/galleries")}
+              />
               <MoreButton
                 icon="pulse-outline"
                 label="Activity"
@@ -62,7 +77,11 @@ export default function ClientFloatingTabBar({ activeRoute = "home" }: Props) {
           <TabButton
             icon="ellipsis-horizontal"
             active={moreActive}
-            onPress={() => navigate("/client")}
+            onPress={() =>
+              navigate(
+                activeRoute === "galleries" ? "/client" : "/client/galleries",
+              )
+            }
           />
         </View>
       </View>
