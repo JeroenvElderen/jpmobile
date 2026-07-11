@@ -54,6 +54,14 @@ export default function RootLayout() {
           name="admin/galleries"
           options={{ animation: "none", headerShown: false }}
         />
+        <Stack.Screen
+          name="client/galleries"
+          options={{ animation: "none", headerShown: false }}
+        />
+        <Stack.Screen
+          name="client/profile"
+          options={{ animation: "none", headerShown: false }}
+        />
       </Stack>
     </>
   );

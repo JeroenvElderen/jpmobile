@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -17,12 +18,14 @@ type Props = {
 
 export default function ClientFloatingTabBar({ activeRoute = "home" }: Props) {
   const router = useRouter();
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
   const moreActive =
     activeRoute === "activity" ||
     activeRoute === "profile" ||
     activeRoute === "galleries";
 
   const navigate = (href: Parameters<typeof router.replace>[0]) => {
+    setIsMoreOpen(false);
     router.replace(href);
   };
 
@@ -52,36 +55,26 @@ export default function ClientFloatingTabBar({ activeRoute = "home" }: Props) {
         />
 
         <View style={styles.moreGroup}>
-          {moreActive && (
+          {isMoreOpen && (
             <View style={styles.moreMenu}>
-                <MoreButton
+              <MoreButton
                 icon="images-outline"
                 label="Galleries"
                 active={activeRoute === "galleries"}
                 onPress={() => navigate("/client/galleries")}
               />
               <MoreButton
-                icon="pulse-outline"
-                label="Activity"
-                active={activeRoute === "activity"}
-                onPress={() => navigate("/client")}
-              />
-              <MoreButton
                 icon="person-outline"
                 label="Profile"
                 active={activeRoute === "profile"}
-                onPress={() => navigate("/client")}
+                onPress={() => navigate("/client/profile")}
               />
             </View>
           )}
           <TabButton
             icon="ellipsis-horizontal"
-            active={moreActive}
-            onPress={() =>
-              navigate(
-                activeRoute === "galleries" ? "/client" : "/client/galleries",
-              )
-            }
+            active={moreActive || isMoreOpen}
+            onPress={() => setIsMoreOpen((isOpen) => !isOpen)}
           />
         </View>
       </View>

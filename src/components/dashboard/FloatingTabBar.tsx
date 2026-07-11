@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -11,9 +12,11 @@ type Props = {
 
 export default function FloatingTabBar({ activeRoute = "home" }: Props) {
   const router = useRouter();
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
   const moreActive = activeRoute === "clients" || activeRoute === "galleries";
 
   const navigate = (href: Parameters<typeof router.replace>[0]) => {
+    setIsMoreOpen(false);
     router.replace(href);
   };
 
@@ -43,7 +46,7 @@ export default function FloatingTabBar({ activeRoute = "home" }: Props) {
         />
 
         <View style={styles.moreGroup}>
-          {moreActive && (
+          {isMoreOpen && (
             <View style={styles.moreMenu}>
               <MoreButton
                 icon="person-outline"
@@ -61,12 +64,8 @@ export default function FloatingTabBar({ activeRoute = "home" }: Props) {
           )}
           <TabButton
             icon="ellipsis-horizontal"
-            active={moreActive}
-            onPress={() =>
-              navigate(
-                activeRoute === "galleries" ? "/admin/clients" : "/admin/galleries",
-              )
-            }
+            active={moreActive || isMoreOpen}
+            onPress={() => setIsMoreOpen((isOpen) => !isOpen)}
           />
         </View>
       </View>
