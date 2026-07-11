@@ -2,7 +2,7 @@ import { StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import StatCard from "./StatCard";
 
-type Stat = {
+export type DashboardStat = {
   title: string;
   value: string;
   change: string;
@@ -12,7 +12,7 @@ type Stat = {
   iconBackground: string;
 };
 
-const stats: Stat[] = [
+const fallbackStats: DashboardStat[] = [
   {
     title: "Total Bookings",
     value: "32",
@@ -51,7 +51,7 @@ const stats: Stat[] = [
   },
 ];
 
-export default function DashboardStats() {
+export default function DashboardStats({ stats = fallbackStats }: { stats?: DashboardStat[] }) {
   return (
     <View style={styles.container}>
       {stats.map((item) => (

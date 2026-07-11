@@ -21,6 +21,7 @@
   ],
   "exclude": [
     "node_modules",
-    "code from official website (DONT USE IT BUT REFERENCE)"
+    "code from official website (DONT USE IT BUT REFERENCE)",
+    "supabase/functions"
   ]
 }

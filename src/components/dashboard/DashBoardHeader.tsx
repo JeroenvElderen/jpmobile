@@ -1,7 +1,8 @@
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-export default function DashboardHeader() {
+export default function DashboardHeader({ notificationCount = 0 }: { notificationCount?: number }) {
+  const todayLabel = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date());
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
@@ -21,14 +22,14 @@ export default function DashboardHeader() {
           />
 
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>2</Text>
+            <Text style={styles.badgeText}>{notificationCount}</Text>
           </View>
         </TouchableOpacity>
       </View>
 
       <View style={styles.greeting}>
         <Text style={styles.title}>
-          Good morning, Jereen 👋
+          Good morning, Jeroen 👋
         </Text>
 
         <Text style={styles.subtitle}>
@@ -44,7 +45,7 @@ export default function DashboardHeader() {
         />
 
         <Text style={styles.dateText}>
-          Today, May 25
+          Today, {todayLabel}
         </Text>
 
         <Ionicons

@@ -1,7 +1,7 @@
 import ChartCard from "./ChartCard";
 import DashboardLineChart from "./LineChart";
 
-export default function PerformanceCard() {
+export default function PerformanceCard({ bookingTrend, revenueTrend }: { bookingTrend: number[]; revenueTrend: number[] }) {
   return (
     <>
       <ChartCard
@@ -10,7 +10,7 @@ export default function PerformanceCard() {
       >
         <DashboardLineChart
           color="#5B3DF5"
-          data={[5, 7, 9, 8, 11, 14, 18]}
+          data={bookingTrend}
         />
       </ChartCard>
 
@@ -20,7 +20,7 @@ export default function PerformanceCard() {
       >
         <DashboardLineChart
           color="#22C55E"
-          data={[220, 380, 500, 450, 610, 780, 950]}
+          data={revenueTrend}
         />
       </ChartCard>
     </>

@@ -1,34 +1,17 @@
 import { StyleSheet, Text, View } from "react-native";
 import ActivityItem from "./ActivityItem";
+import type { AdminActivityItem } from "@/lib/adminDashboardData";
 
-export default function RecentActivity() {
+export default function RecentActivity({ activities }: { activities: AdminActivityItem[] }) {
   return (
     <View style={styles.card}>
       <Text style={styles.heading}>Recent Activity</Text>
 
-      <ActivityItem
-        icon="paw-outline"
-        color="#5B3DF5"
-        title="New booking created"
-        subtitle="Dog Walk for Milo"
-        time="10:30"
-      />
-
-      <ActivityItem
-        icon="checkmark-circle-outline"
-        color="#16A34A"
-        title="Booking completed"
-        subtitle="Training Session"
-        time="09:10"
-      />
-
-      <ActivityItem
-        icon="cash-outline"
-        color="#F97316"
-        title="Invoice paid"
-        subtitle="€75 received"
-        time="Yesterday"
-      />
+      {activities.length ? (
+        activities.map((activity) => <ActivityItem key={activity.id} {...activity} />)
+      ) : (
+        <Text style={styles.emptyText}>No recent activity yet.</Text>
+      )}
     </View>
   );
 }
@@ -43,6 +26,11 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
 
+  emptyText: {
+    color: "#70758E",
+    paddingVertical: 14,
+  },
+  
   heading: {
     fontSize: 22,
     fontWeight: "700",

@@ -3,5 +3,10 @@
     "source.fixAll": "never",
     "source.organizeImports": "never",
     "source.sortMembers": "explicit"
-  }
+  },
+
+  "deno.enable": true,
+  "deno.enablePaths": [
+    "supabase/functions"
+  ]
 }
