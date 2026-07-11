@@ -27,6 +27,10 @@ export default function RootLayout() {
           options={{ animation: "none", headerShown: false }}
         />
         <Stack.Screen
+          name="client"
+          options={{ animation: "none", headerShown: false }}
+        />
+        <Stack.Screen
           name="admin/bookings"
           options={{ animation: "none", headerShown: false }}
         />

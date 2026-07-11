@@ -45,7 +45,7 @@ export default function LoginScreen() {
       return;
     }
 
-    router.replace('/');
+    router.replace('/client');
   };
 
   return (
