@@ -1,7 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-export default function ClientDashboardHeader() {
+type Props = {
+  clientName: string;
+  notificationCount: number;
+};
+
+export default function ClientDashboardHeader({ clientName, notificationCount }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
@@ -11,14 +16,16 @@ export default function ClientDashboardHeader() {
 
         <TouchableOpacity style={styles.notification} activeOpacity={0.8}>
           <Ionicons name="notifications-outline" size={26} color="#1D2238" />
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>2</Text>
-          </View>
+          {notificationCount > 0 ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{notificationCount}</Text>
+            </View>
+          ) : null}
         </TouchableOpacity>
       </View>
 
       <View style={styles.greeting}>
-        <Text style={styles.title}>Good morning, Sarah 👋</Text>
+        <Text style={styles.title}>Good morning, {clientName} 👋</Text>
         <Text style={styles.subtitle}>
           Here&apos;s what&apos;s coming up for your pets.
         </Text>

@@ -1,12 +1,20 @@
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, View } from "react-native";
 
-import { clientActivities, type ClientActivity } from "@/lib/clientDashboardData";
+import type { ClientActivity } from "@/lib/clientDashboardData";
 
-export default function ClientRecentActivityList() {
+type Props = {
+  activities: ClientActivity[];
+};
+
+export default function ClientRecentActivityList({ activities }: Props) {
+  if (activities.length === 0) {
+    return <Text style={styles.emptyText}>No recent activity yet.</Text>;
+  }
+
   return (
     <View>
-      {clientActivities.map((activity) => (
+      {activities.map((activity) => (
         <ActivityRow key={activity.id} activity={activity} />
       ))}
     </View>
@@ -29,7 +37,13 @@ function ActivityRow({ activity }: { activity: ClientActivity }) {
 }
 
 const styles = StyleSheet.create({
-  row: {
+  emptyText: {
+    color: "#70758E",
+    fontSize: 14,
+    lineHeight: 20,
+    paddingVertical: 14,
+  },
+    row: {
     alignItems: "center",
     borderBottomColor: "#F2F2F7",
     borderBottomWidth: 1,

@@ -1,17 +1,25 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { clientBookings, type ClientBooking } from "@/lib/clientDashboardData";
+import type { ClientBooking } from "@/lib/clientDashboardData";
 
 const statusStyles = {
   Confirmed: { bg: "#ECFDF3", color: "#16A34A" },
   Pending: { bg: "#FFF4EB", color: "#F97316" },
 } as const;
 
-export default function UpcomingBookingsList() {
+type Props = {
+  bookings: ClientBooking[];
+};
+
+export default function UpcomingBookingsList({ bookings }: Props) {
+  if (bookings.length === 0) {
+    return <Text style={styles.emptyText}>No upcoming bookings yet.</Text>;
+  }
+
   return (
     <View>
-      {clientBookings.map((booking) => (
+      {bookings.map((booking) => (
         <BookingRow key={booking.id} booking={booking} />
       ))}
 
@@ -49,6 +57,12 @@ function BookingRow({ booking }: { booking: ClientBooking }) {
 }
 
 const styles = StyleSheet.create({
+  emptyText: {
+    color: "#70758E",
+    fontSize: 14,
+    lineHeight: 20,
+    paddingVertical: 14,
+  },
   row: {
     alignItems: "center",
     borderBottomColor: "#F0F2F7",

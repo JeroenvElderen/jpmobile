@@ -1,17 +1,25 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { clientPets, type ClientPet } from "@/lib/clientDashboardData";
+import type { ClientPet } from "@/lib/clientDashboardData";
 
 const statusStyles = {
   Active: { bg: "#DDF6DC", color: "#178A22" },
   "Needs review": { bg: "#FFF0D8", color: "#F97316" },
 } as const;
 
-export default function MyPetsList() {
+type Props = {
+  pets: ClientPet[];
+};
+
+export default function MyPetsList({ pets }: Props) {
+  if (pets.length === 0) {
+    return <Text style={styles.emptyText}>No pets have been added to your profile yet.</Text>;
+  }
+
   return (
     <View>
-      {clientPets.map((pet) => (
+      {pets.map((pet) => (
         <PetCard key={pet.id} pet={pet} />
       ))}
     </View>
@@ -50,6 +58,12 @@ function PetCard({ pet }: { pet: ClientPet }) {
 }
 
 const styles = StyleSheet.create({
+  emptyText: {
+    color: "#70758E",
+    fontSize: 14,
+    lineHeight: 20,
+    paddingVertical: 14,
+  },
   card: {
     backgroundColor: "#FFF",
     borderColor: "#ECECF5",
