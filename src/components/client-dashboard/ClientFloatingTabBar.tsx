@@ -13,8 +13,8 @@ export default function ClientFloatingTabBar({ activeRoute = "home" }: Props) {
   const router = useRouter();
   const moreActive = activeRoute === "activity" || activeRoute === "profile";
 
-  const navigateHome = () => {
-    router.replace("/client");
+  const navigate = (href: Parameters<typeof router.replace>[0]) => {
+    router.replace(href);
   };
 
   return (
@@ -23,13 +23,13 @@ export default function ClientFloatingTabBar({ activeRoute = "home" }: Props) {
         <TabButton
           icon="home-outline"
           active={activeRoute === "home"}
-          onPress={navigateHome}
+          onPress={() => navigate("/client")}
         />
 
         <TabButton
           icon="calendar-outline"
           active={activeRoute === "bookings"}
-          onPress={navigateHome}
+          onPress={() => navigate("/client/bookings")}
         />
 
         <TouchableOpacity style={styles.fab} activeOpacity={0.9}>
@@ -39,7 +39,7 @@ export default function ClientFloatingTabBar({ activeRoute = "home" }: Props) {
         <TabButton
           icon="paw-outline"
           active={activeRoute === "pets"}
-          onPress={navigateHome}
+          onPress={() => navigate("/client")}
         />
 
         <View style={styles.moreGroup}>
@@ -49,20 +49,20 @@ export default function ClientFloatingTabBar({ activeRoute = "home" }: Props) {
                 icon="pulse-outline"
                 label="Activity"
                 active={activeRoute === "activity"}
-                onPress={navigateHome}
+                onPress={() => navigate("/client")}
               />
               <MoreButton
                 icon="person-outline"
                 label="Profile"
                 active={activeRoute === "profile"}
-                onPress={navigateHome}
+                onPress={() => navigate("/client")}
               />
             </View>
           )}
           <TabButton
             icon="ellipsis-horizontal"
             active={moreActive}
-            onPress={navigateHome}
+            onPress={() => navigate("/client")}
           />
         </View>
       </View>
