@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-export default function GalleriesHeader() {
+export default function GalleriesHeader({ onCreate }: { onCreate: () => void }) {
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.iconButton} activeOpacity={0.8}>
@@ -13,11 +13,8 @@ export default function GalleriesHeader() {
         <Ionicons name="images-outline" size={27} color="#4B22C8" />
       </View>
 
-      <TouchableOpacity style={styles.notification} activeOpacity={0.8}>
-        <Ionicons name="notifications-outline" size={27} color="#141A33" />
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>2</Text>
-        </View>
+      <TouchableOpacity style={styles.notification} activeOpacity={0.8} onPress={onCreate}>
+        <Ionicons name="add-outline" size={30} color="#141A33" />
       </TouchableOpacity>
     </View>
   );
