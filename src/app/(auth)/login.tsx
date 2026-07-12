@@ -6,7 +6,7 @@ import { Button, Card, Divider, Input, Screen, Typography } from '@/components/u
 import { supabase } from '@/lib/supabase';
 import { theme } from '@/lib/theme';
 
-const ADMIN_EMAIL = 'jeroen@jeroenandpaws.com';
+const ADMIN_EMAIL = "jeroen@jeroenandpaws.com".toLowerCase();
 
 export default function LoginScreen() {
   const router = useRouter();

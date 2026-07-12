@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
 
     return json({ error: "Unsupported admin action." }, 400);
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "Admin dashboard failed." }, 500);
+    return json({ error: getErrorMessage(error) }, 500);
   }
 });
 
@@ -286,4 +286,14 @@ function json(body: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string" && message.trim()) return message;
+  }
+  if (typeof error === "string" && error.trim()) return error;
+  return "Admin dashboard failed.";
 }
