@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image, StyleSheet, Text, View } from "react-native";
 
-import { BookingStatus, bookings } from "@/lib/bookingData";
+import { Booking, BookingStatus } from "@/lib/bookingData";
 
 const statusStyles: Record<BookingStatus, { bg: string; color: string }> = {
   Confirmed: { bg: "#DDF6DC", color: "#178A22" },
@@ -9,7 +9,11 @@ const statusStyles: Record<BookingStatus, { bg: string; color: string }> = {
   Cancelled: { bg: "#FFE5EC", color: "#E11D48" },
 };
 
-export default function BookingList() {
+type BookingListProps = {
+  bookings: Booking[];
+};
+
+export default function BookingList({ bookings }: BookingListProps) {
   return (
     <View style={styles.container}>
       {bookings.map((booking) => {

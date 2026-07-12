@@ -1,12 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, View } from "react-native";
 
-import { bookingStats } from "@/lib/bookingData";
+import { BookingStat } from "@/lib/bookingData";
 
-export default function BookingStatsGrid() {
+type BookingStatsGridProps = {
+  stats: BookingStat[];
+};
+
+export default function BookingStatsGrid({ stats }: BookingStatsGridProps) {
   return (
     <View style={styles.grid}>
-      {bookingStats.map((stat) => (
+      {stats.map((stat) => (
         <View key={stat.id} style={styles.card}>
           <View style={[styles.iconCircle, { backgroundColor: stat.bg }]}>
             <Ionicons name={stat.icon} size={25} color={stat.color} />
