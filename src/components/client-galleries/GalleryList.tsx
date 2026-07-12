@@ -1,14 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Image, Linking, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { galleries, type Gallery } from "@/lib/galleriesData";
+import type { Gallery } from "@/lib/galleriesData";
 
 const statusStyles = {
   Published: { bg: "#DDF6DC", color: "#178A22" },
   Private: { bg: "#FFF0D8", color: "#F97316" },
+  Draft: { bg: "#FFF0D8", color: "#F97316" },
+  Archived: { bg: "#ECECF5", color: "#5D6485" },
 } as const;
 
-export default function GalleryList() {
+export default function GalleryList({ galleries }: { galleries: Gallery[] }) {
   return (
     <View style={styles.container}>
       {galleries.map((gallery) => (
@@ -20,6 +22,9 @@ export default function GalleryList() {
 
 function GalleryCard({ gallery }: { gallery: Gallery }) {
   const badge = statusStyles[gallery.status];
+  const openDownloads = () => {
+    gallery.items.forEach((item) => Linking.openURL(item.imageUrl));
+  };
 
   return (
     <TouchableOpacity style={styles.card} activeOpacity={0.86}>
@@ -57,7 +62,10 @@ function GalleryCard({ gallery }: { gallery: Gallery }) {
         </View>
       </View>
 
-      <Ionicons name="ellipsis-vertical" size={21} color="#3A1399" />
+      <TouchableOpacity style={styles.downloadButton} onPress={openDownloads}>
+        <Ionicons name="download-outline" size={21} color="#3A1399" />
+        <Text style={styles.downloadText}>Download</Text>
+      </TouchableOpacity>
     </TouchableOpacity>
   );
 }
@@ -153,5 +161,14 @@ const styles = StyleSheet.create({
     color: "#5D6485",
     fontSize: 13,
     fontWeight: "700",
+  },
+  downloadButton: {
+    alignItems: "center",
+    gap: 4,
+  },
+  downloadText: {
+    color: "#3A1399",
+    fontSize: 11,
+    fontWeight: "800",
   },
 });

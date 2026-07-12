@@ -1,21 +1,21 @@
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, View } from "react-native";
 
-import { galleryStats } from "@/lib/galleriesData";
+import type { GalleryStat } from "@/lib/galleriesData";
 
-export default function GalleryStatsGrid() {
+export default function GalleryStatsGrid({ stats }: { stats: GalleryStat[] }) {
   return (
     <View style={styles.grid}>
-      {galleryStats.map((stat) => (
-        <View key={stat.title} style={styles.card}>
-          <View style={[styles.iconCircle, { backgroundColor: stat.iconBackground }]}>
-            <Ionicons name={stat.icon} size={25} color={stat.iconColor} />
+      {stats.map((stat) => (
+        <View key={stat.label} style={styles.card}>
+          <View style={[styles.iconCircle, { backgroundColor: stat.bg }]}>
+            <Ionicons name={stat.icon as keyof typeof Ionicons.glyphMap} size={25} color={stat.color} />
           </View>
-          <Text style={styles.title}>{stat.title}</Text>
+          <Text style={styles.title}>{stat.label}</Text>
           <Text style={styles.value}>{stat.value}</Text>
           <View style={styles.changeRow}>
             <Ionicons name="arrow-up" size={14} color="#1FD32B" />
-            <Text style={styles.change}>{stat.change}</Text>
+            <Text style={styles.change}>{stat.id === "photos" ? "Original quality" : "Realtime"}</Text>
           </View>
           <Text style={styles.caption}>from last month</Text>
         </View>

@@ -1,14 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { galleries, type Gallery } from "@/lib/galleriesData";
+import type { Gallery } from "@/lib/galleriesData";
 
 const statusStyles = {
   Published: { bg: "#DDF6DC", color: "#178A22" },
   Private: { bg: "#FFF0D8", color: "#F97316" },
+  Draft: { bg: "#FFF0D8", color: "#F97316" },
+  Archived: { bg: "#ECECF5", color: "#5D6485" },
 } as const;
 
-export default function GalleryList() {
+export default function GalleryList({ galleries }: { galleries: Gallery[] }) {
   return (
     <View style={styles.container}>
       {galleries.map((gallery) => (
