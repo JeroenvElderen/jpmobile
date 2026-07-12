@@ -1,5 +1,7 @@
 import type { Ionicons } from "@expo/vector-icons";
 
+import { supabase } from "@/lib/supabase";
+
 export type DogStatus = "Active" | "Inactive";
 
 export type Dog = {
@@ -22,110 +24,151 @@ export type DogStat = {
   iconBackground: string;
 };
 
-export const dogStats: DogStat[] = [
-  {
-    title: "Total Dogs",
-    value: "48",
-    change: "12%",
-    icon: "paw-outline",
-    iconColor: "#5B3DF5",
-    iconBackground: "#F3EEFF",
-  },
-  {
-    title: "Active",
-    value: "41",
-    change: "8%",
-    icon: "heart-outline",
-    iconColor: "#F97316",
-    iconBackground: "#FFF5EB",
-  },
-  {
-    title: "Regulars",
-    value: "28",
-    change: "15%",
-    icon: "shield-checkmark-outline",
-    iconColor: "#16A34A",
-    iconBackground: "#ECFDF3",
-  },
-  {
-    title: "New This Month",
-    value: "7",
-    change: "5%",
-    icon: "star-outline",
-    iconColor: "#EF476F",
-    iconBackground: "#FDECF1",
-  },
-];
+export type DogsData = {
+  clientId?: string;
+  stats: DogStat[];
+  dogs: Dog[];
+};
 
-export const dogs: Dog[] = [
-  {
-    id: "1",
-    name: "Max",
-    breed: "Golden Retriever",
-    owner: "Sarah Johnson",
-    bookings: 12,
-    age: "3 years old",
-    status: "Active",
-    avatar: "https://placedog.net/220/220?id=11",
-  },
-  {
-    id: "2",
-    name: "Luna",
-    breed: "Labrador Retriever",
-    owner: "James Smith",
-    bookings: 8,
-    age: "2 years old",
-    status: "Active",
-    avatar: "https://placedog.net/220/220?id=12",
-  },
-  {
-    id: "3",
-    name: "Buddy",
-    breed: "Beagle",
-    owner: "Emily Davis",
-    bookings: 15,
-    age: "4 years old",
-    status: "Active",
-    avatar: "https://placedog.net/220/220?id=13",
-  },
-  {
-    id: "4",
-    name: "Charlie",
-    breed: "Goldendoodle",
-    owner: "Michael Brown",
-    bookings: 10,
-    age: "1 year old",
-    status: "Active",
-    avatar: "https://placedog.net/220/220?id=14",
-  },
-  {
-    id: "5",
-    name: "Milo",
-    breed: "Husky",
-    owner: "Olivia Wilson",
-    bookings: 6,
-    age: "2 years old",
-    status: "Active",
-    avatar: "https://placedog.net/220/220?id=15",
-  },
-  {
-    id: "6",
-    name: "Poppy",
-    breed: "Pug",
-    owner: "Daniel Taylor",
-    bookings: 0,
-    age: "5 years old",
-    status: "Inactive",
-    avatar: "https://placedog.net/220/220?id=16",
-  },
-  {
-    id: "7",
-    name: "Bella",
-    breed: "Cavalier King Charles",
-    owner: "Sophia Anderson",
-    bookings: 9,
-    age: "3 years old",
-    status: "Active",
-    avatar: "https://placedog.net/220/220?id=17",
-  },
-];
+type PortalDogRow = {
+  id: string;
+  client_id: string;
+  name: string;
+  breed: string | null;
+  age: string | null;
+  status: string | null;
+  profile_photo_url: string | null;
+  portal_clients?: { full_name: string | null } | { full_name: string | null }[] | null;
+};
+
+type PortalBookingDogRow = {
+  dog_id: string | null;
+  dog_ids: string[] | null;
+};
+
+type PortalClient = {
+  id: string;
+};
+
+const fallbackDogImage = "https://placedog.net/220/220?id=11";
+
+export async function fetchAdminDogsData(): Promise<DogsData> {
+  const { data: dogs, error: dogsError } = await supabase
+    .from("portal_dogs")
+    .select("id, client_id, name, breed, age, status, profile_photo_url, portal_clients(full_name)")
+    .order("name", { ascending: true })
+    .returns<PortalDogRow[]>();
+
+  if (dogsError) {
+    throw dogsError;
+  }
+
+  const bookingCounts = await fetchBookingCounts();
+  const mappedDogs = dogs.map((dog) => mapDogRow(dog, bookingCounts));
+
+  return {
+    stats: buildDogStats(mappedDogs),
+    dogs: mappedDogs,
+  };
+}
+
+export async function fetchClientDogsData(): Promise<DogsData> {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+
+  if (userError) {
+    throw userError;
+  }
+
+  const user = userData.user;
+
+  if (!user) {
+    throw new Error("Log in to view your pets.");
+  }
+
+  const { data: client, error: clientError } = await supabase
+    .from("portal_clients")
+    .select("id")
+    .eq("auth_user_id", user.id)
+    .single<PortalClient>();
+
+  if (clientError) {
+    throw clientError;
+  }
+
+  const { data: dogs, error: dogsError } = await supabase
+    .from("portal_dogs")
+    .select("id, client_id, name, breed, age, status, profile_photo_url, portal_clients(full_name)")
+    .eq("client_id", client.id)
+    .order("name", { ascending: true })
+    .returns<PortalDogRow[]>();
+
+  if (dogsError) {
+    throw dogsError;
+  }
+
+  const bookingCounts = await fetchBookingCounts(client.id);
+  const mappedDogs = dogs.map((dog) => mapDogRow(dog, bookingCounts));
+
+  return {
+    clientId: client.id,
+    stats: buildDogStats(mappedDogs),
+    dogs: mappedDogs,
+  };
+}
+
+async function fetchBookingCounts(clientId?: string) {
+  let query = supabase.from("portal_bookings").select("dog_id, dog_ids");
+
+  if (clientId) {
+    query = query.eq("client_id", clientId);
+  }
+
+  const { data, error } = await query.returns<PortalBookingDogRow[]>();
+
+  if (error) {
+    throw error;
+  }
+
+  return data.reduce<Record<string, number>>((counts, booking) => {
+    const dogIds = booking.dog_ids?.length ? booking.dog_ids : booking.dog_id ? [booking.dog_id] : [];
+
+    dogIds.forEach((dogId) => {
+      counts[dogId] = (counts[dogId] || 0) + 1;
+    });
+
+    return counts;
+  }, {});
+}
+
+function mapDogRow(row: PortalDogRow, bookingCounts: Record<string, number>): Dog {
+  const client = Array.isArray(row.portal_clients) ? row.portal_clients[0] : row.portal_clients;
+
+  return {
+    id: row.id,
+    name: row.name,
+    breed: row.breed || "Breed not set",
+    owner: client?.full_name || "Owner TBC",
+    bookings: bookingCounts[row.id] || 0,
+    age: row.age || "Age not set",
+    status: normalizeDogStatus(row.status),
+    avatar: row.profile_photo_url || fallbackDogImage,
+  };
+}
+
+function buildDogStats(dogs: Dog[]): DogStat[] {
+  const total = dogs.length;
+  const active = dogs.filter((dog) => dog.status === "Active").length;
+  const regulars = dogs.filter((dog) => dog.bookings >= 3).length;
+  const newOrNeedsReview = dogs.filter((dog) => dog.bookings === 0 || dog.status === "Inactive").length;
+
+  return [
+    { title: "Total Dogs", value: String(total), change: "Live", icon: "paw-outline", iconColor: "#5B3DF5", iconBackground: "#F3EEFF" },
+    { title: "Active", value: String(active), change: "Live", icon: "heart-outline", iconColor: "#F97316", iconBackground: "#FFF5EB" },
+    { title: "Regulars", value: String(regulars), change: "Live", icon: "shield-checkmark-outline", iconColor: "#16A34A", iconBackground: "#ECFDF3" },
+    { title: "Needs Review", value: String(newOrNeedsReview), change: "Live", icon: "star-outline", iconColor: "#EF476F", iconBackground: "#FDECF1" },
+  ];
+}
+
+function normalizeDogStatus(status: string | null): DogStatus {
+  return status?.toLowerCase() === "inactive" ? "Inactive" : "Active";
+}

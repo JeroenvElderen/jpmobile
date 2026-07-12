@@ -1,14 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { dogs, type Dog } from "@/lib/dogsData";
+import type { Dog } from "@/lib/dogsData";
 
 const statusStyles = {
   Active: { bg: "#DDF6DC", color: "#178A22" },
   Inactive: { bg: "#FFF0D8", color: "#F97316" },
 } as const;
 
-export default function ClientDogList() {
+type Props = {
+  dogs: Dog[];
+};
+
+export default function ClientDogList({ dogs }: Props) {
   return (
     <View style={styles.container}>
       {dogs.map((dog) => (

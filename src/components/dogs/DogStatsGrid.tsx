@@ -1,12 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, View } from "react-native";
 
-import { dogStats } from "@/lib/dogsData";
+import type { DogStat } from "@/lib/dogsData";
 
-export default function DogStatsGrid() {
+type Props = {
+  stats: DogStat[];
+};
+
+export default function DogStatsGrid({ stats }: Props) {
   return (
     <View style={styles.grid}>
-      {dogStats.map((stat) => (
+      {stats.map((stat) => (
         <View key={stat.title} style={styles.card}>
           <View style={[styles.iconCircle, { backgroundColor: stat.iconBackground }]}>
             <Ionicons name={stat.icon} size={25} color={stat.iconColor} />
