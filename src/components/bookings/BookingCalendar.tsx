@@ -5,14 +5,16 @@ import { PanResponder, ScrollView, StyleSheet, Text, TouchableOpacity, View } fr
 import { Booking, BookingStat, BookingStatus } from "@/lib/bookingData";
 
 const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const mondayFirstDayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const timelineHours = Array.from({ length: 13 }, (_, index) => index + 8);
 const hourHeight = 88;
+const weekHourHeight = 92;
 const timelineStartHour = 8;
 
-const statusStyles: Record<BookingStatus, { bg: string; border: string; color: string; iconBg: string }> = {
-  Confirmed: { bg: "#F0F8FF", border: "#CDE3FF", color: "#1261C3", iconBg: "#E1F0FF" },
-  Pending: { bg: "#FFF7ED", border: "#FED7AA", color: "#EA580C", iconBg: "#FFEDD5" },
-  Cancelled: { bg: "#FFF1F4", border: "#FDA4AF", color: "#E11D48", iconBg: "#FFE4E6" },
+const statusStyles: Record<BookingStatus, { bg: string; border: string; color: string; iconBg: string; dot: string }> = {
+  Confirmed: { bg: "#F4EFFF", border: "#DED3FF", color: "#4B22C8", iconBg: "#E9DFFF", dot: "#4B22C8" },
+  Pending: { bg: "#FFF5EA", border: "#FFDDBF", color: "#EA580C", iconBg: "#FFE8D2", dot: "#F97316" },
+  Cancelled: { bg: "#F0FFF4", border: "#CDEFD8", color: "#16A34A", iconBg: "#DFF7E7", dot: "#16A34A" },
 };
 
 const serviceAccents = ["#4B22C8", "#0EA5E9", "#16A34A", "#F97316", "#7C3AED"];
@@ -87,13 +89,19 @@ export default function BookingCalendar({ bookings, stats = [], showStats = fals
           ))}
         </View>
 
+        <TouchableOpacity style={styles.filterButton} activeOpacity={0.84}>
+          <Ionicons name="filter-outline" size={18} color="#1F2756" />
+          <Text style={styles.filterText}>Filters</Text>
+        </TouchableOpacity>
       </View>
 
       {showStats ? <StatsRail stats={stats} /> : null}
 
       {calendarView === "Day" ? <DaySchedule selectedDate={selectedDate} dayBookings={dayBookings} /> : null}
-      {calendarView === "Week" ? <WeekSchedule visibleDays={visibleDays} bookings={weekBookings} onSelectDate={setSelectedDate} /> : null}
+      {calendarView === "Week" ? <WeekSchedule selectedDate={selectedDate} visibleDays={visibleDays} bookings={weekBookings} onSelectDate={setSelectedDate} /> : null}
       {calendarView === "Month" ? <MonthSchedule selectedDate={selectedDate} monthDays={monthDays} bookings={monthBookings} onSelectDate={setSelectedDate} /> : null}
+
+      {calendarView !== "Day" ? <StatusLegend /> : null}
     </View>
   );
 }
@@ -118,45 +126,120 @@ function DaySchedule({ selectedDate, dayBookings }: { selectedDate: Date; dayBoo
   );
 }
 
-function WeekSchedule({ visibleDays, bookings, onSelectDate }: { visibleDays: Date[]; bookings: Booking[]; onSelectDate: (date: Date) => void }) {
+function WeekSchedule({ selectedDate, visibleDays, bookings, onSelectDate }: { selectedDate: Date; visibleDays: Date[]; bookings: Booking[]; onSelectDate: (date: Date) => void }) {
   return (
-    <View style={styles.calendarCard}>
+    <View style={styles.weekTimelineCard}>
       <Text style={styles.dateHeading}>{formatWeekRange(visibleDays)}</Text>
-      <View style={styles.weekCalendarGrid}>
+      <View style={styles.weekTimelineHeader}>
+        <View style={styles.weekTimeGutter} />
         {visibleDays.map((day) => {
-          const dayItems = bookings.filter((booking) => booking.startsAtIso && isSameDay(new Date(booking.startsAtIso), day));
+          const active = isSameDay(day, selectedDate);
           return (
-            <TouchableOpacity key={day.toISOString()} style={styles.weekDayColumn} activeOpacity={0.84} onPress={() => onSelectDate(day)}>
+            <TouchableOpacity key={day.toISOString()} style={styles.weekHeaderDay} activeOpacity={0.84} onPress={() => onSelectDate(day)}>
               <Text style={styles.weekDayLabel}>{dayLabels[day.getDay()]}</Text>
-              <Text style={styles.weekDayNumber}>{day.getDate()}</Text>
-              {dayItems.slice(0, 3).map((booking) => <Text key={booking.id} style={styles.miniBooking} numberOfLines={1}>{booking.time} {booking.dog}</Text>)}
-              {dayItems.length > 3 ? <Text style={styles.moreText}>+{dayItems.length - 3} more</Text> : null}
+              <View style={[styles.weekDayNumberWrap, active && styles.activeWeekDayNumberWrap]}>
+                <Text style={[styles.weekDayNumber, active && styles.activeWeekDayNumber]}>{day.getDate()}</Text>
+              </View>
             </TouchableOpacity>
           );
         })}
+      </View>
+
+      <View style={styles.weekTimelineBody}>
+        <View style={styles.weekTimeColumn}>
+          {timelineHours.map((hour) => <View key={hour} style={styles.weekTimeSlot}><Text style={styles.timeText}>{formatHour(hour)}</Text></View>)}
+        </View>
+        <View style={styles.weekGrid}>
+          {timelineHours.map((hour) => <View key={hour} style={styles.weekGridLine} />)}
+          {visibleDays.map((day, index) => <View key={day.toISOString()} style={[styles.weekGridColumn, { left: `${(index / 7) * 100}%` }]} />)}
+          {bookings.map((booking) => <WeekBookingCard key={booking.id} booking={booking} visibleDays={visibleDays} />)}
+        </View>
       </View>
       {bookings.length === 0 ? <EmptyCalendarCard copy="No bookings are scheduled for this week." /> : null}
     </View>
   );
 }
 
+function WeekBookingCard({ booking, visibleDays }: { booking: Booking; visibleDays: Date[] }) {
+  const start = booking.startsAtIso ? new Date(booking.startsAtIso) : null;
+  if (!start) return null;
+
+  const dayIndex = visibleDays.findIndex((day) => isSameDay(day, start));
+  if (dayIndex < 0) return null;
+
+  const end = booking.endsAtIso ? new Date(booking.endsAtIso) : null;
+  const durationMinutes = start && end ? Math.max(30, (end.getTime() - start.getTime()) / 60_000) : 60;
+  const minutesFromStart = (start.getHours() - timelineStartHour) * 60 + start.getMinutes();
+  const top = Math.max(8, (minutesFromStart / 60) * weekHourHeight + 8);
+  const height = Math.max(86, (durationMinutes / 60) * weekHourHeight - 12);
+  const status = statusStyles[booking.status];
+  const columnWidth = 100 / 7;
+
+  return (
+    <View style={[styles.weekBookingCard, { backgroundColor: status.bg, borderColor: status.border, height, left: `${dayIndex * columnWidth + 0.55}%`, top, width: `${columnWidth - 1.1}%` }]}>
+      <View style={styles.weekBookingTitleRow}>
+        <View style={[styles.weekBookingIcon, { backgroundColor: status.iconBg }]}>
+          <Ionicons name={booking.serviceIcon} size={14} color={status.color} />
+        </View>
+        <Text style={styles.weekBookingName} numberOfLines={1}>{booking.dog}</Text>
+      </View>
+      <Text style={styles.weekBookingService} numberOfLines={2}>{booking.service}</Text>
+      <Text style={styles.weekBookingTime} numberOfLines={2}>{booking.time} – {formatEndTime(booking.endsAtIso)}</Text>
+    </View>
+  );
+}
+
 function MonthSchedule({ selectedDate, monthDays, bookings, onSelectDate }: { selectedDate: Date; monthDays: Date[]; bookings: Booking[]; onSelectDate: (date: Date) => void }) {
   return (
-    <View style={styles.calendarCard}>
-      <Text style={styles.dateHeading}>{formatMonth(selectedDate)}</Text>
-      <View style={styles.monthWeekHeader}>{dayLabels.map((label) => <Text key={label} style={styles.monthWeekLabel}>{label}</Text>)}</View>
+    <View style={styles.monthCalendarCard}>
+      <View style={styles.monthWeekHeader}>{mondayFirstDayLabels.map((label) => <Text key={label} style={styles.monthWeekLabel}>{label}</Text>)}</View>
       <View style={styles.monthGrid}>
         {monthDays.map((day) => {
           const dayItems = bookings.filter((booking) => booking.startsAtIso && isSameDay(new Date(booking.startsAtIso), day));
           const muted = !isSameMonth(day, selectedDate);
+          const active = isSameDay(day, selectedDate);
           return (
             <TouchableOpacity key={day.toISOString()} style={[styles.monthDayCell, muted && styles.mutedMonthDay]} activeOpacity={0.84} onPress={() => onSelectDate(day)}>
-              <Text style={[styles.monthDayNumber, muted && styles.mutedMonthText]}>{day.getDate()}</Text>
-              {dayItems.slice(0, 2).map((booking) => <View key={booking.id} style={styles.monthDot} />)}
+              <View style={[styles.monthNumberWrap, active && styles.activeMonthNumberWrap]}>
+                <Text style={[styles.monthDayNumber, muted && styles.mutedMonthText, active && styles.activeMonthDayNumber]}>{day.getDate()}</Text>
+              </View>
+              {dayItems.slice(0, 2).map((booking) => <MonthBookingChip key={booking.id} booking={booking} />)}
+              {dayItems.length > 2 ? <Text style={styles.monthMoreText}>+{dayItems.length - 2} more</Text> : null}
             </TouchableOpacity>
           );
         })}
       </View>
+    </View>
+  );
+}
+
+function MonthBookingChip({ booking }: { booking: Booking }) {
+  const status = statusStyles[booking.status];
+  return (
+    <View style={[styles.monthBookingChip, { backgroundColor: status.bg, borderColor: status.border }]}>
+      <Ionicons name={booking.serviceIcon} size={11} color={status.color} />
+      <Text style={styles.monthBookingName} numberOfLines={1}>{booking.dog}</Text>
+      <Text style={styles.monthBookingTime} numberOfLines={1}>{booking.time}</Text>
+    </View>
+  );
+}
+
+function StatusLegend() {
+  const items = [
+    { label: "Confirmed", color: "#4B22C8" },
+    { label: "Pending", color: "#F97316" },
+    { label: "In Progress", color: "#2F80ED" },
+    { label: "Completed", color: "#16A34A" },
+  ];
+
+  return (
+    <View style={styles.legend}>
+      {items.map((item) => (
+        <View key={item.label} style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: item.color }]} />
+          <Text style={styles.legendText}>{item.label}</Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -230,7 +313,7 @@ function buildWeekDays(date: Date) {
 
 function buildMonthGrid(date: Date) {
   const firstOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
-  const gridStart = startOfDay(addDays(firstOfMonth, -firstOfMonth.getDay()));
+  const gridStart = startOfDay(addDays(firstOfMonth, -((firstOfMonth.getDay() + 6) % 7)));
   return Array.from({ length: 42 }, (_, index) => addDays(gridStart, index));
 }
 
@@ -295,9 +378,11 @@ const styles = StyleSheet.create({
   activeDayNumber: { color: "#FFF" },
   dayDot: { backgroundColor: "transparent", borderRadius: 4, height: 7, width: 7 },
   dayDotFilled: { backgroundColor: "#4B22C8" },
-  controlRow: { alignItems: "center", flexDirection: "row", justifyContent: "center", marginBottom: 20 },
-  segmentedControl: { backgroundColor: "#FFF", borderColor: "#E7E9F2", borderRadius: 14, borderWidth: 1, flexDirection: "row", overflow: "hidden", width: "100%" },
-  segmentButton: { alignItems: "center", flex: 1, height: 54, justifyContent: "center" },
+  controlRow: { alignItems: "center", flexDirection: "row", gap: 14, justifyContent: "space-between", marginBottom: 20 },
+  segmentedControl: { backgroundColor: "#FFF", borderColor: "#E7E9F2", borderRadius: 14, borderWidth: 1, flex: 1, flexDirection: "row", overflow: "hidden" },
+  segmentButton: { alignItems: "center", flex: 1, height: 48, justifyContent: "center" },
+  filterButton: { alignItems: "center", backgroundColor: "#FFF", borderColor: "#E7E9F2", borderRadius: 14, borderWidth: 1, flexDirection: "row", gap: 8, height: 48, justifyContent: "center", paddingHorizontal: 14 },
+  filterText: { color: "#10162F", fontSize: 15, fontWeight: "800" },
   activeSegment: { backgroundColor: "#F2EAFE" },
   segmentText: { color: "#364063", fontSize: 15, fontWeight: "700" },
   activeSegmentText: { color: "#4B22C8" },
@@ -335,9 +420,40 @@ const styles = StyleSheet.create({
   monthWeekHeader: { flexDirection: "row", marginBottom: 8 },
   monthWeekLabel: { color: "#64708F", flex: 1, fontSize: 12, fontWeight: "900", textAlign: "center" },
   monthGrid: { flexDirection: "row", flexWrap: "wrap" },
-  monthDayCell: { alignItems: "center", aspectRatio: 1, borderColor: "#EEF0F7", borderRadius: 14, borderWidth: 1, justifyContent: "flex-start", margin: "0.7%", paddingTop: 8, width: "12.85%" },
+  monthDayCell: { alignItems: "center", borderColor: "#EEF0F7", borderRadius: 0, borderWidth: 1, justifyContent: "flex-start", minHeight: 142, paddingTop: 8, width: "14.285%" },
   mutedMonthDay: { backgroundColor: "#FAFBFE" },
   monthDayNumber: { color: "#10162F", fontSize: 14, fontWeight: "900" },
   mutedMonthText: { color: "#B5BBD0" },
   monthDot: { backgroundColor: "#4B22C8", borderRadius: 3, height: 6, marginTop: 4, width: 6 },
+  weekTimelineCard: { backgroundColor: "#FFF" },
+  weekTimelineHeader: { flexDirection: "row", marginBottom: 8 },
+  weekTimeGutter: { width: 48 },
+  weekHeaderDay: { alignItems: "center", flex: 1, gap: 4 },
+  weekDayNumberWrap: { alignItems: "center", borderRadius: 17, height: 34, justifyContent: "center", width: 34 },
+  activeWeekDayNumberWrap: { backgroundColor: "#4B22C8" },
+  activeWeekDayNumber: { color: "#FFF" },
+  weekTimelineBody: { flexDirection: "row", minHeight: timelineHours.length * weekHourHeight },
+  weekTimeColumn: { paddingRight: 6, width: 48 },
+  weekTimeSlot: { height: weekHourHeight },
+  weekGrid: { borderLeftColor: "#DDE2F1", borderLeftWidth: 1, flex: 1, minHeight: timelineHours.length * weekHourHeight, position: "relative" },
+  weekGridLine: { borderTopColor: "#E9EDF7", borderTopWidth: 1, height: weekHourHeight },
+  weekGridColumn: { borderLeftColor: "#E9EDF7", borderLeftWidth: 1, bottom: 0, position: "absolute", top: 0, width: 1 },
+  weekBookingCard: { borderRadius: 7, borderWidth: 1, gap: 3, padding: 4, position: "absolute" },
+  weekBookingTitleRow: { alignItems: "center", flexDirection: "row", gap: 4 },
+  weekBookingIcon: { alignItems: "center", borderRadius: 9, height: 18, justifyContent: "center", width: 18 },
+  weekBookingName: { color: "#172044", flex: 1, fontSize: 8, fontWeight: "900" },
+  weekBookingService: { color: "#10162F", fontSize: 9, fontWeight: "900", lineHeight: 12 },
+  weekBookingTime: { color: "#25305B", fontSize: 9, fontWeight: "800", lineHeight: 12 },
+  monthCalendarCard: { backgroundColor: "#FFF" },
+  monthNumberWrap: { alignItems: "center", borderRadius: 14, height: 28, justifyContent: "center", marginBottom: 3, width: 28 },
+  activeMonthNumberWrap: { backgroundColor: "#4B22C8" },
+  activeMonthDayNumber: { color: "#FFF" },
+  monthBookingChip: { borderRadius: 6, borderWidth: 1, gap: 1, marginBottom: 3, paddingHorizontal: 3, paddingVertical: 3, width: "92%" },
+  monthBookingName: { color: "#172044", fontSize: 8, fontWeight: "900" },
+  monthBookingTime: { color: "#25305B", fontSize: 8, fontWeight: "800" },
+  monthMoreText: { alignSelf: "flex-start", color: "#364063", fontSize: 9, fontWeight: "800", marginLeft: 5, marginTop: 1 },
+  legend: { alignItems: "center", backgroundColor: "#FFF", borderColor: "#E7E9F2", borderRadius: 12, borderWidth: 1, flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 14, paddingHorizontal: 10, paddingVertical: 9 },
+  legendItem: { alignItems: "center", flexDirection: "row", gap: 7 },
+  legendDot: { borderRadius: 4, height: 8, width: 8 },
+  legendText: { color: "#263159", fontSize: 11, fontWeight: "800" },
 });

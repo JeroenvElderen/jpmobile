@@ -1,4 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as DocumentPicker from "expo-document-picker";
+import * as ImageManipulator from "expo-image-manipulator";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
@@ -11,6 +13,8 @@ type RouteKey = "home" | "bookings" | "pets" | "activity" | "profile" | "galleri
 type QuickAction = "booking" | "dog" | "message" | null;
 type DogOption = { id: string; name: string };
 type BookingSlot = { id: string; date: string; startTime: string };
+type DogAvatarFile = { uri: string; name: string; type: string };
+type DogDraft = { id: string; name: string; breed: string; age: string; notes: string; avatar: DogAvatarFile | null };
 
 type Props = {
   activeRoute?: RouteKey;
@@ -19,6 +23,7 @@ type Props = {
 const serviceOptions = ["Dog walking", "Drop-in visit", "Dog sitting", "Other"];
 const durationOptions = ["30 minutes", "45 minutes", "1 hour", "1 hour 30 minutes", "2 hours", "Half day", "Full day", "Overnight / 24 hours"];
 const businessWhatsappNumber = process.env.EXPO_PUBLIC_BUSINESS_WHATSAPP_NUMBER || "31600000000";
+const createEmptyDogDraft = (id = String(Date.now())): DogDraft => ({ id, name: "", breed: "", age: "", notes: "", avatar: null });
 
 export default function ClientFloatingTabBar({ activeRoute = "home" }: Props) {
   const router = useRouter();
@@ -73,10 +78,7 @@ function ClientQuickActionModal({ action, onClose }: { action: QuickAction; onCl
   const [slots, setSlots] = useState<BookingSlot[]>([{ id: "1", date: "", startTime: "" }]);
   const [location, setLocation] = useState("");
   const [notes, setNotes] = useState("");
-  const [dogName, setDogName] = useState("");
-  const [dogBreed, setDogBreed] = useState("");
-  const [dogAge, setDogAge] = useState("");
-  const [dogNotes, setDogNotes] = useState("");
+  const [dogDrafts, setDogDrafts] = useState<DogDraft[]>([createEmptyDogDraft("1")]);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -105,7 +107,7 @@ function ClientQuickActionModal({ action, onClose }: { action: QuickAction; onCl
   const selectedDogNames = useMemo(() => dogs.filter((dog) => selectedDogIds.includes(dog.id)).map((dog) => dog.name), [dogs, selectedDogIds]);
 
   const resetAndClose = () => {
-    setSelectedDogIds([]); setService(serviceOptions[0]); setDuration("1 hour"); setSlots([{ id: "1", date: "", startTime: "" }]); setLocation(""); setNotes(""); setDogName(""); setDogBreed(""); setDogAge(""); setDogNotes(""); setMessage(""); onClose();
+    setSelectedDogIds([]); setService(serviceOptions[0]); setDuration("1 hour"); setSlots([{ id: "1", date: "", startTime: "" }]); setLocation(""); setNotes(""); setDogDrafts([createEmptyDogDraft("1")]); setMessage(""); onClose();
   };
 
   const openWhatsapp = async (body: string) => {
@@ -114,6 +116,50 @@ function ClientQuickActionModal({ action, onClose }: { action: QuickAction; onCl
     const webUrl = `https://wa.me/${businessWhatsappNumber}?text=${encoded}`;
     const supported = await Linking.canOpenURL(appUrl);
     await Linking.openURL(supported ? appUrl : webUrl);
+  };
+
+  const updateDogDraft = (id: string, key: keyof Omit<DogDraft, "id">, value: string | DogAvatarFile | null) => setDogDrafts((current) => current.map((draft) => draft.id === id ? { ...draft, [key]: value } : draft));
+  const addSecondDogDraft = () => setDogDrafts((current) => current.length >= 2 ? current : [...current, createEmptyDogDraft("2")]);
+  const removeDogDraft = (id: string) => setDogDrafts((current) => current.length === 1 ? current : current.filter((draft) => draft.id !== id));
+
+  const pickDogAvatar = async (draftId: string) => {
+    const result = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true, multiple: false, type: "*/*" });
+    if (result.canceled) return;
+    const asset = result.assets[0];
+    if (!asset?.uri) throw new Error("Selected file is missing a local URI.");
+
+    try {
+      const converted = await ImageManipulator.manipulateAsync(
+        asset.uri,
+        [{ resize: { width: 900 } }],
+        { compress: 0.88, format: ImageManipulator.SaveFormat.JPEG },
+      );
+      updateDogDraft(draftId, "avatar", { uri: converted.uri, name: toJpegFileName(asset.name || "dog-avatar"), type: "image/jpeg" });
+    } catch {
+      throw new Error("That file could not be converted into an avatar image. Please choose a photo or image document.");
+    }
+  };
+
+  const uploadDogAvatar = async (dogId: string, avatar: DogAvatarFile) => {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw sessionError;
+    const token = sessionData.session?.access_token;
+    if (!token) throw new Error("You must be signed in to upload a dog avatar.");
+
+    const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/dog-avatar-upload`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ dogId, fileName: avatar.name, contentType: avatar.type }),
+    });
+    const upload = await response.json();
+    if (!response.ok) throw new Error(upload.error || "Unable to prepare avatar upload.");
+
+    const uploadBody = await fetch(avatar.uri).then((fileResponse) => fileResponse.blob());
+    const { error: uploadError } = await supabase.storage.from(upload.bucket).uploadToSignedUrl(upload.path, upload.token, uploadBody, { contentType: upload.contentType });
+    if (uploadError) throw uploadError;
+
+    const { error: updateError } = await supabase.from("portal_dogs").update({ profile_photo_url: upload.publicUrl }).eq("id", dogId).eq("client_id", clientId);
+    if (updateError) throw updateError;
   };
 
   const submit = async () => {
@@ -127,10 +173,17 @@ function ClientQuickActionModal({ action, onClose }: { action: QuickAction; onCl
       }
       if (action === "dog") {
         if (!clientId) throw new Error("Unable to find your client profile.");
-        if (!dogName.trim()) throw new Error("Please enter your dog's name.");
-        const { error } = await supabase.from("portal_dogs").insert({ client_id: clientId, name: dogName.trim(), breed: dogBreed.trim() || null, age: dogAge.trim() || null, notes: dogNotes.trim() || null, status: "active" });
-        if (error) throw error;
-        Alert.alert("Dog added", `${dogName.trim()} has been added to your portal.`);
+        const dogsToCreate = dogDrafts.filter((draft) => draft.name.trim() || draft.breed.trim() || draft.age.trim() || draft.notes.trim() || draft.avatar);
+        if (!dogsToCreate.length || !dogsToCreate[0].name.trim()) throw new Error("Please enter at least one dog name.");
+        const unnamedDog = dogsToCreate.find((draft) => !draft.name.trim());
+        if (unnamedDog) throw new Error("Please enter a name for each dog you add.");
+
+        for (const draft of dogsToCreate) {
+          const { data: dog, error } = await supabase.from("portal_dogs").insert({ client_id: clientId, name: draft.name.trim(), breed: draft.breed.trim() || null, age: draft.age.trim() || null, notes: draft.notes.trim() || null, status: "active" }).select("id").single();
+          if (error) throw error;
+          if (draft.avatar) await uploadDogAvatar(dog.id, draft.avatar);
+        }
+        Alert.alert("Dog added", `${dogsToCreate.length === 1 ? dogsToCreate[0].name.trim() : `${dogsToCreate.length} dogs`} ${dogsToCreate.length === 1 ? "has" : "have"} been added to your portal.`);
       }
       if (action === "message") {
         if (!message.trim()) throw new Error("Please type a message first.");
@@ -165,7 +218,7 @@ function ClientQuickActionModal({ action, onClose }: { action: QuickAction; onCl
               <Field label="Location" placeholder="Home address, usual pick-up point, or to be confirmed" value={location} onChangeText={setLocation} />
               <Field label="Notes" placeholder="Add preferred times, care notes, or anything Jeroen should know." value={notes} onChangeText={setNotes} multiline />
             </> : null}
-            {action === "dog" ? <><Field label="Dog name" value={dogName} onChangeText={setDogName} /><Field label="Breed" value={dogBreed} onChangeText={setDogBreed} /><Field label="Age" value={dogAge} onChangeText={setDogAge} /><Field label="Care notes" value={dogNotes} onChangeText={setDogNotes} multiline /></> : null}
+            {action === "dog" ? <DogDraftFields drafts={dogDrafts} onUpdate={updateDogDraft} onPickAvatar={(draftId) => pickDogAvatar(draftId).catch((error) => Alert.alert("Unable to use file", error instanceof Error ? error.message : "Please try another file."))} onAddSecondDog={addSecondDogDraft} onRemove={removeDogDraft} /> : null}
             {action === "message" ? <Field label="Message" placeholder="Type your WhatsApp message..." value={message} onChangeText={setMessage} multiline /> : null}
           </ScrollView>
         )}
@@ -173,6 +226,39 @@ function ClientQuickActionModal({ action, onClose }: { action: QuickAction; onCl
       </View>
     </Modal>
   );
+}
+
+function DogDraftFields({ drafts, onUpdate, onPickAvatar, onAddSecondDog, onRemove }: { drafts: DogDraft[]; onUpdate: (id: string, key: keyof Omit<DogDraft, "id">, value: string | DogAvatarFile | null) => void; onPickAvatar: (id: string) => void; onAddSecondDog: () => void; onRemove: (id: string) => void }) {
+  const canAddSecondDog = drafts.length === 1 && drafts[0].name.trim().length > 0;
+
+  return <>
+    {drafts.map((draft, index) => (
+      <View key={draft.id} style={styles.dogDraftCard}>
+        <View style={styles.dogDraftHeader}>
+          <View>
+            <Text style={styles.label}>Dog {index + 1}</Text>
+            <Text style={styles.helpText}>{index === 0 ? "Required" : "Optional second dog"}</Text>
+          </View>
+          {index > 0 ? <TouchableOpacity onPress={() => onRemove(draft.id)}><Text style={styles.removeAvatarText}>Remove</Text></TouchableOpacity> : null}
+        </View>
+        <Field label="Dog name" value={draft.name} onChangeText={(value) => onUpdate(draft.id, "name", value)} />
+        <AvatarPicker avatar={draft.avatar} onPick={() => onPickAvatar(draft.id)} onClear={() => onUpdate(draft.id, "avatar", null)} />
+        <Field label="Breed" value={draft.breed} onChangeText={(value) => onUpdate(draft.id, "breed", value)} />
+        <Field label="Age" value={draft.age} onChangeText={(value) => onUpdate(draft.id, "age", value)} />
+        <Field label="Care notes" value={draft.notes} onChangeText={(value) => onUpdate(draft.id, "notes", value)} multiline />
+      </View>
+    ))}
+    {canAddSecondDog ? <TouchableOpacity style={styles.addDogButton} onPress={onAddSecondDog}><Ionicons name="add-circle-outline" size={18} color="#3B198F" /><Text style={styles.addDogText}>Add a second dog</Text></TouchableOpacity> : null}
+  </>;
+}
+
+function toJpegFileName(fileName: string) {
+  const withoutExtension = fileName.replace(/\.[^/.]+$/, "") || "dog-avatar";
+  return `${withoutExtension}.jpg`;
+}
+
+function AvatarPicker({ avatar, onPick, onClear }: { avatar: DogAvatarFile | null; onPick: () => void; onClear: () => void }) {
+  return <View style={styles.field}><Text style={styles.label}>Profile avatar</Text><TouchableOpacity style={styles.avatarPicker} onPress={onPick}><Ionicons name="cloud-upload-outline" size={20} color="#3B198F" /><View style={styles.avatarPickerCopy}><Text style={styles.avatarPickerTitle}>{avatar ? avatar.name : "Upload any file type"}</Text><Text style={styles.helpText}>{avatar ? "Converted to a JPEG avatar." : "We will convert supported files to a profile image."}</Text></View></TouchableOpacity>{avatar ? <TouchableOpacity onPress={onClear}><Text style={styles.removeAvatarText}>Remove selected avatar</Text></TouchableOpacity> : null}</View>;
 }
 
 function Field({ label, ...props }: { label: string } & React.ComponentProps<typeof TextInput>) { return <View style={styles.field}><Text style={styles.label}>{label}</Text><TextInput placeholderTextColor="#8F8EA0" style={[styles.input, props.multiline && styles.multiline]} {...props} /></View>; }
@@ -208,6 +294,14 @@ const styles = StyleSheet.create({
   helpText: { color: "#6E7191", fontSize: 12, marginTop: 5 },
   mutedText: { color: "#6E7191", fontWeight: "600" },
   emptyText: { color: "#9A3412", fontWeight: "600" },
+  dogDraftCard: { backgroundColor: "#FAF8FF", borderColor: "#E4DFEE", borderRadius: 16, borderWidth: 1, gap: 14, padding: 14 },
+  dogDraftHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
+  addDogButton: { alignItems: "center", alignSelf: "flex-start", borderColor: "#B5A7DF", borderRadius: 999, borderWidth: 1, flexDirection: "row", gap: 8, paddingHorizontal: 14, paddingVertical: 12 },
+  addDogText: { color: "#3B198F", fontSize: 12, fontWeight: "900", letterSpacing: 1.2, textTransform: "uppercase" },
+  avatarPicker: { alignItems: "center", borderColor: "#DAD7E6", borderRadius: 13, borderWidth: 1, flexDirection: "row", gap: 12, paddingHorizontal: 16, paddingVertical: 13 },
+  avatarPickerCopy: { flex: 1 },
+  avatarPickerTitle: { color: "#171326", fontSize: 15, fontWeight: "800" },
+  removeAvatarText: { color: "#9A3412", fontSize: 12, fontWeight: "900", letterSpacing: 1.2, textTransform: "uppercase" },
   input: { borderColor: "#DAD7E6", borderRadius: 13, borderWidth: 1, color: "#171326", fontSize: 15, paddingHorizontal: 16, paddingVertical: 13 },
   multiline: { minHeight: 96, textAlignVertical: "top" },
   selectInput: { alignItems: "center", borderColor: "#DAD7E6", borderRadius: 13, borderWidth: 1, flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 13 },
