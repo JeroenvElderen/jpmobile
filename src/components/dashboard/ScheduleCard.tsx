@@ -1,4 +1,5 @@
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { router } from "expo-router";
 import ScheduleItem from "./ScheduleItem";
 import type { AdminScheduleItem } from "@/lib/adminDashboardData";
 
@@ -9,12 +10,6 @@ export default function ScheduleCard({ schedule }: { schedule: AdminScheduleItem
         <Text style={styles.title}>
           Today's Schedule
         </Text>
-
-        <TouchableOpacity>
-          <Text style={styles.viewAll}>
-            View All
-          </Text>
-        </TouchableOpacity>
       </View>
 
       {schedule.length ? (
@@ -27,12 +22,6 @@ export default function ScheduleCard({ schedule }: { schedule: AdminScheduleItem
       ) : (
         <Text style={styles.emptyText}>No bookings scheduled for today.</Text>
       )}
-
-      <TouchableOpacity style={styles.button}>
-        <Text style={styles.buttonText}>
-          View Full Schedule
-        </Text>
-      </TouchableOpacity>
     </View>
   );
 }

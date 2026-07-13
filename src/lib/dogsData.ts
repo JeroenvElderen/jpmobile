@@ -13,6 +13,7 @@ export type Dog = {
   age: string;
   status: DogStatus;
   avatar: string;
+  notes: string;
 };
 
 export type DogStat = {
@@ -38,6 +39,7 @@ type PortalDogRow = {
   age: string | null;
   status: string | null;
   profile_photo_url: string | null;
+  notes: string | null;
   portal_clients?: { full_name: string | null } | { full_name: string | null }[] | null;
 };
 
@@ -55,7 +57,7 @@ const fallbackDogImage = "https://placedog.net/220/220?id=11";
 export async function fetchAdminDogsData(): Promise<DogsData> {
   const { data: dogs, error: dogsError } = await supabase
     .from("portal_dogs")
-    .select("id, client_id, name, breed, age, status, profile_photo_url, portal_clients(full_name)")
+    .select("id, client_id, name, breed, age, status, profile_photo_url, notes, portal_clients(full_name)")
     .order("name", { ascending: true })
     .returns<PortalDogRow[]>();
 
@@ -97,7 +99,7 @@ export async function fetchClientDogsData(): Promise<DogsData> {
 
   const { data: dogs, error: dogsError } = await supabase
     .from("portal_dogs")
-    .select("id, client_id, name, breed, age, status, profile_photo_url, portal_clients(full_name)")
+    .select("id, client_id, name, breed, age, status, profile_photo_url, notes, portal_clients(full_name)")
     .eq("client_id", client.id)
     .order("name", { ascending: true })
     .returns<PortalDogRow[]>();
@@ -152,6 +154,7 @@ function mapDogRow(row: PortalDogRow, bookingCounts: Record<string, number>): Do
     age: row.age || "Age not set",
     status: normalizeDogStatus(row.status),
     avatar: row.profile_photo_url || fallbackDogImage,
+    notes: row.notes?.trim() || "",
   };
 }
 

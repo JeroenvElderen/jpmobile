@@ -91,6 +91,14 @@ export async function setAdminDogStatus(dogId: string, active: boolean) {
   await invokeAdminDashboard({ type: "set-dog-status", payload: { dogId, active } });
 }
 
+export async function updateAdminDogInfo(input: { dogId: string; breed?: string; age?: string; notes?: string }) {
+  await invokeAdminDashboard({ type: "update-dog", payload: input });
+}
+
+export async function deleteAdminDog(dogId: string) {
+  await invokeAdminDashboard({ type: "delete-dog", payload: { dogId } });
+}
+
 export async function setAdminClientStatus(clientId: string, active: boolean) {
   await invokeAdminDashboard({ type: "set-client-status", payload: { clientId, active } });
 }

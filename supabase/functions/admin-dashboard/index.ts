@@ -14,6 +14,8 @@ type AdminAction =
   | { type: "fetch" }
   | { type: "create-client"; payload: { fullName: string; email: string; phone?: string } }
   | { type: "create-dog"; payload: { clientId: string; name: string; breed?: string; age?: string; notes?: string } }
+  | { type: "update-dog"; payload: { dogId: string; breed?: string; age?: string; notes?: string } }
+  | { type: "delete-dog"; payload: { dogId: string } }
   | { type: "create-booking"; payload: { clientId: string; dogId?: string; dogIds?: string[]; serviceName: string; startsAt: string; location?: string; notes?: string } }
   | { type: "update-booking"; payload: { bookingId: string; clientId?: string; dogId?: string; dogIds?: string[]; serviceName?: string; startsAt?: string; location?: string; notes?: string; status?: string } }
   | { type: "cancel-booking"; payload: { bookingId: string } }
@@ -100,6 +102,16 @@ Deno.serve(async (req) => {
 
     if (action.type === "create-dog") {
       await createDogRecord(adminClient, action.payload);
+      return json({ data: await fetchDashboard(adminClient) });
+    }
+
+    if (action.type === "update-dog") {
+      await updateDogRecord(adminClient, action.payload);
+      return json({ data: await fetchDashboard(adminClient) });
+    }
+
+    if (action.type === "delete-dog") {
+      await deleteDogRecord(adminClient, action.payload.dogId);
       return json({ data: await fetchDashboard(adminClient) });
     }
 
@@ -233,6 +245,21 @@ async function createDogRecord(supabase: ReturnType<typeof createClient>, input:
     notes: input.notes?.trim() || null,
     status: "Active",
   });
+  if (error) throw error;
+}
+
+async function updateDogRecord(supabase: ReturnType<typeof createClient>, input: { dogId: string; breed?: string; age?: string; notes?: string }) {
+  const update = {
+    breed: input.breed?.trim() || null,
+    age: input.age?.trim() || null,
+    notes: input.notes?.trim() || null,
+  };
+  const { error } = await supabase.from("portal_dogs").update(update).eq("id", required(input.dogId, "Dog ID"));
+  if (error) throw error;
+}
+
+async function deleteDogRecord(supabase: ReturnType<typeof createClient>, dogId: string) {
+  const { error } = await supabase.from("portal_dogs").delete().eq("id", required(dogId, "Dog ID"));
   if (error) throw error;
 }
 

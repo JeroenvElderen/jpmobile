@@ -68,7 +68,7 @@ export default function DogsScreen() {
         <DogsHeader />
         <DogStatsGrid stats={dogsData.stats} />
         <DogFilters />
-        <DogList dogs={dogsData.dogs} />
+        <DogList dogs={dogsData.dogs} onChanged={() => loadDogs({ showLoading: false })} />
       </ScrollView>
 
       <FloatingTabBar activeRoute="dogs" />

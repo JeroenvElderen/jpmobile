@@ -86,15 +86,15 @@ export default function AdminScreen() {
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <DashboardHeader notificationCount={dashboardData.notificationCount} />
+        <QuickActions onNewBooking={() => setActiveAction("booking")} onAddClient={() => setActiveAction("client")} onAddDog={() => setActiveAction("dog")} />
         <DashboardStats stats={dashboardData.stats} />
         <ScheduleCard schedule={dashboardData.schedule} />
         <PerformanceCard bookingTrend={dashboardData.bookingTrend} revenueTrend={dashboardData.revenueTrend} />
-        <QuickActions onNewBooking={() => setActiveAction("booking")} onAddClient={() => setActiveAction("client")} onAddDog={() => setActiveAction("dog")} />
         <RecentActivity activities={dashboardData.activities} />
       </ScrollView>
 
       <FloatingTabBar activeRoute="home" />
-      <QuickActionForms action={activeAction} onClose={() => setActiveAction(null)} onSaved={() => loadDashboard({ showLoading: false })} />
+      <QuickActionForms action={activeAction} options={dashboardData.formOptions} onClose={() => setActiveAction(null)} onSaved={() => loadDashboard({ showLoading: false })} />
     </View>
   );
 }

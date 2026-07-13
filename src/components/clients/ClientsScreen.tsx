@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import FloatingTabBar from "@/components/dashboard/FloatingTabBar";
 import { fetchAdminClientsData, type ClientsData } from "@/lib/clientsData";
@@ -13,6 +13,7 @@ export default function ClientsScreen() {
   const [clientsData, setClientsData] = useState<ClientsData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadClients = useCallback(async ({ showLoading = true }: { showLoading?: boolean } = {}) => {
@@ -54,6 +55,75 @@ export default function ClientsScreen() {
     };
   }, [loadClients]);
 
+  const handleSaveClient = async (client: ClientsData["clients"][number], updates: { name: string; email: string }) => {
+    const trimmedName = updates.name.trim();
+    const trimmedEmail = updates.email.trim();
+
+    if (!trimmedName || !trimmedEmail) {
+      Alert.alert("Missing details", "Client name and email are required.");
+      return;
+    }
+
+    const { error: updateError } = await supabase
+      .from("portal_clients")
+      .update({ full_name: trimmedName, email: trimmedEmail })
+      .eq("id", client.id);
+
+    if (updateError) {
+      Alert.alert("Unable to update client", updateError.message);
+      return;
+    }
+
+    setClientsData((current) => current ? {
+      ...current,
+      clients: current.clients.map((currentClient) => currentClient.id === client.id ? { ...currentClient, name: trimmedName, email: trimmedEmail } : currentClient),
+    } : current);
+  };
+
+  const handleToggleStatus = async (client: ClientsData["clients"][number], status: ClientsData["clients"][number]["status"]) => {
+    const { error: updateError } = await supabase
+      .from("portal_clients")
+      .update({ status: status.toLowerCase() })
+      .eq("id", client.id);
+
+    if (updateError) {
+      Alert.alert("Unable to update status", updateError.message);
+      return;
+    }
+
+    setClientsData((current) => current ? {
+      ...current,
+      clients: current.clients.map((currentClient) => currentClient.id === client.id ? { ...currentClient, status } : currentClient),
+    } : current);
+  };
+
+  const handleDeleteClient = (client: ClientsData["clients"][number]) => {
+    Alert.alert("Delete client", `Delete ${client.name}? This cannot be undone.`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          const { error: deleteError } = await supabase.from("portal_clients").delete().eq("id", client.id);
+
+          if (deleteError) {
+            Alert.alert("Unable to delete client", deleteError.message);
+            return;
+          }
+
+          setClientsData((current) => current ? { ...current, clients: current.clients.filter((currentClient) => currentClient.id !== client.id) } : current);
+        },
+      },
+    ]);
+  };
+
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+  const filteredClients = clientsData?.clients.filter((client) => {
+    if (!normalizedSearch) return true;
+
+    return [client.name, client.email, client.dogs].some((value) => value.toLowerCase().includes(normalizedSearch));
+  }) ?? [];
+
   if (isLoading) {
     return <CenteredState message="Loading clients..." />;
   }
@@ -67,8 +137,8 @@ export default function ClientsScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <ClientsHeader />
         <ClientStatsGrid stats={clientsData.stats} />
-        <ClientFilters />
-        <ClientList clients={clientsData.clients} />
+        <ClientFilters searchQuery={searchQuery} onSearchChange={setSearchQuery} />
+        <ClientList clients={filteredClients} onDeleteClient={handleDeleteClient} onSaveClient={handleSaveClient} onToggleStatus={handleToggleStatus} />
       </ScrollView>
 
       <FloatingTabBar activeRoute="clients" />
