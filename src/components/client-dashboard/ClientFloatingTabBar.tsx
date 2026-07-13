@@ -23,7 +23,7 @@ type Props = {
 
 const serviceOptions = ["Dog walking", "Drop-in visit", "Dog sitting", "Other"];
 const durationOptions = ["30 minutes", "45 minutes", "1 hour", "1 hour 30 minutes", "2 hours", "Half day", "Full day", "Overnight / 24 hours"];
-const businessWhatsappNumber = process.env.EXPO_PUBLIC_BUSINESS_WHATSAPP_NUMBER || "31600000000";
+const businessWhatsappNumber = process.env.EXPO_PUBLIC_BUSINESS_WHATSAPP_NUMBER || "353872473099";
 const createEmptyDogDraft = (id = String(Date.now())): DogDraft => ({ id, name: "", breed: "", age: "", notes: "", avatar: null });
 
 export default function ClientFloatingTabBar({ activeRoute = "home" }: Props) {
@@ -185,7 +185,18 @@ if (!response.ok || !upload) {
         if (!selectedDogIds.length) throw new Error("Please choose who the booking is for.");
         const filledSlots = slots.filter((slot) => slot.date.trim() && slot.startTime.trim());
         if (!filledSlots.length) throw new Error("Please add at least one date and start time.");
-        await openWhatsapp(`Request booking\n\nClient: ${clientName}\nDog(s): ${selectedDogNames.join(", ")}\nService: ${service}\nWhen: ${filledSlots.map((slot, index) => `${index + 1}. ${slot.date} at ${slot.startTime}`).join("; ")}\nHow long: ${duration}\nLocation: ${location || "To be confirmed"}\nNotes: ${notes || "None"}`);
+        if (!clientId) throw new Error("Unable to find your client profile.");
+        await createBookingRequests({
+          clientId,
+          dogIds: selectedDogIds,
+          selectedDogNames,
+          service,
+          duration,
+          slots: filledSlots,
+          location,
+          notes,
+        });
+        Alert.alert("Booking requested", `${filledSlots.length} booking request${filledSlots.length === 1 ? "" : "s"} saved for review.`);
       }
       if (action === "dog") {
         if (!clientId) throw new Error("Unable to find your client profile.");
@@ -238,10 +249,87 @@ if (!response.ok || !upload) {
             {action === "message" ? <Field label="Message" placeholder="Type your WhatsApp message..." value={message} onChangeText={setMessage} multiline /> : null}
           </ScrollView>
         )}
-        <View style={styles.footer}><TouchableOpacity style={styles.cancelButton} onPress={resetAndClose}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity><TouchableOpacity style={styles.submitButton} onPress={submit} disabled={isSubmitting || isLoading}>{isSubmitting ? <ActivityIndicator color="#FFF" /> : <Text style={styles.submitText}>{action === "booking" ? `Send ${slots.length} booking request${slots.length === 1 ? "" : "s"}` : action === "message" ? "Send to WhatsApp" : "Save dog"} <Ionicons name="paper-plane-outline" size={15} /></Text>}</TouchableOpacity></View>
+        <View style={styles.footer}><TouchableOpacity style={styles.cancelButton} onPress={resetAndClose}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity><TouchableOpacity style={styles.submitButton} onPress={submit} disabled={isSubmitting || isLoading}>{isSubmitting ? <ActivityIndicator color="#FFF" /> : <Text style={styles.submitText}>{action === "booking" ? `Request ${slots.length} booking${slots.length === 1 ? "" : "s"}` : action === "message" ? "Send to WhatsApp" : "Save dog"} <Ionicons name="paper-plane-outline" size={15} /></Text>}</TouchableOpacity></View>
       </View>
     </Modal>
   );
+}
+
+async function createBookingRequests({ clientId, dogIds, selectedDogNames, service, duration, slots, location, notes }: { clientId: string; dogIds: string[]; selectedDogNames: string[]; service: string; duration: string; slots: BookingSlot[]; location: string; notes: string }) {
+  const durationMinutes = parseDurationMinutes(duration);
+  const bookingRows = slots.map((slot) => {
+    const startsAt = parseRequestedStart(slot);
+    const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
+    const requestNotes = [
+      notes.trim() ? notes.trim() : null,
+      `Client requested booking for ${selectedDogNames.join(", ")}.`,
+      `Requested duration: ${duration}.`,
+    ].filter(Boolean).join("\n\n");
+
+    return {
+      client_id: clientId,
+      dog_id: dogIds[0],
+      dog_ids: dogIds,
+      service_name: service,
+      starts_at: startsAt.toISOString(),
+      ends_at: endsAt.toISOString(),
+      timezone: "Europe/Dublin",
+      location: location.trim() || null,
+      notes: requestNotes,
+      status: "needs_review",
+      source: "client_request",
+      sync_status: "needs_review",
+      needs_review: true,
+    };
+  });
+
+  console.log("Booking rows being inserted:", bookingRows);
+
+const { data, error } = await supabase
+  .from("portal_bookings")
+  .insert(bookingRows)
+  .select();
+
+console.log("Insert data:", data);
+console.log("Insert error:", error);
+
+if (error) throw error;
+}
+
+function parseRequestedStart(slot: BookingSlot) {
+  const dateMatch = slot.date.trim().match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2}|\d{4})$/);
+  if (!dateMatch) throw new Error(`Use dd/mm/yyyy for ${slot.date}.`);
+
+  const [, dayText, monthText, yearText] = dateMatch;
+  const day = Number(dayText);
+  const month = Number(monthText);
+  const year = Number(yearText.length === 2 ? `20${yearText}` : yearText);
+  const timeMatch = slot.startTime.trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
+  if (!timeMatch) throw new Error(`Use a valid start time for ${slot.date}.`);
+
+  let hour = Number(timeMatch[1]);
+  const minute = Number(timeMatch[2] ?? "0");
+  const meridiem = timeMatch[3]?.toLowerCase();
+  if (meridiem === "pm" && hour < 12) hour += 12;
+  if (meridiem === "am" && hour === 12) hour = 0;
+  if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59) throw new Error(`Use a valid date and time for ${slot.date}.`);
+
+  const startsAt = new Date(year, month - 1, day, hour, minute);
+  if (startsAt.getFullYear() !== year || startsAt.getMonth() !== month - 1 || startsAt.getDate() !== day) throw new Error(`Use a valid date for ${slot.date}.`);
+
+  return startsAt;
+}
+
+function parseDurationMinutes(duration: string) {
+  if (duration === "30 minutes") return 30;
+  if (duration === "45 minutes") return 45;
+  if (duration === "1 hour") return 60;
+  if (duration === "1 hour 30 minutes") return 90;
+  if (duration === "2 hours") return 120;
+  if (duration === "Half day") return 240;
+  if (duration === "Full day") return 480;
+  if (duration === "Overnight / 24 hours") return 1440;
+  return 60;
 }
 
 function DogDraftFields({ drafts, onUpdate, onPickAvatar, onAddSecondDog, onRemove }: { drafts: DogDraft[]; onUpdate: (id: string, key: keyof Omit<DogDraft, "id">, value: string | DogAvatarFile | null) => void; onPickAvatar: (id: string) => void; onAddSecondDog: () => void; onRemove: (id: string) => void }) {

@@ -4,7 +4,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View
 import FloatingTabBar from "@/components/dashboard/FloatingTabBar";
 import { fetchAdminBookingsData, type BookingsData } from "@/lib/bookingData";
 import { supabase } from "@/lib/supabase";
-import BookingCalendar from "./BookingCalendar";
+import AdminBookingListScreen from "./AdminBookingListScreen";
 import BookingsHeader from "./BookingsHeader";
 
 export default function BookingsScreen() {
@@ -65,7 +65,7 @@ export default function BookingsScreen() {
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <BookingsHeader />
-        <BookingCalendar bookings={bookingsData.bookings} stats={bookingsData.stats} showStats />
+        <AdminBookingListScreen bookings={bookingsData.bookings} stats={bookingsData.stats} />
       </ScrollView>
 
       <FloatingTabBar activeRoute="bookings" />
