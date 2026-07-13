@@ -15,6 +15,7 @@ type DogOption = { id: string; name: string };
 type BookingSlot = { id: string; date: string; startTime: string };
 type DogAvatarFile = { uri: string; name: string; type: string };
 type DogDraft = { id: string; name: string; breed: string; age: string; notes: string; avatar: DogAvatarFile | null };
+type DogAvatarUploadResponse = { bucket: string; path: string; token: string; publicUrl: string; contentType: string; error?: string };
 
 type Props = {
   activeRoute?: RouteKey;
@@ -23,7 +24,6 @@ type Props = {
 const serviceOptions = ["Dog walking", "Drop-in visit", "Dog sitting", "Other"];
 const durationOptions = ["30 minutes", "45 minutes", "1 hour", "1 hour 30 minutes", "2 hours", "Half day", "Full day", "Overnight / 24 hours"];
 const businessWhatsappNumber = process.env.EXPO_PUBLIC_BUSINESS_WHATSAPP_NUMBER || "31600000000";
-const dogAvatarBucket = "portal-images";
 const createEmptyDogDraft = (id = String(Date.now())): DogDraft => ({ id, name: "", breed: "", age: "", notes: "", avatar: null });
 
 export default function ClientFloatingTabBar({ activeRoute = "home" }: Props) {
@@ -144,14 +144,38 @@ function ClientQuickActionModal({ action, onClose }: { action: QuickAction; onCl
   const uploadDogAvatar = async (dogId: string, avatar: DogAvatarFile) => {
     if (!clientId) throw new Error("Unable to find your client profile.");
 
-    const uploadBody = await fetch(avatar.uri).then((fileResponse) => fileResponse.blob());
-    const path = `dogs/${clientId}/${dogId}/avatar-${Date.now()}.jpg`;
-    const { error: uploadError } = await supabase.storage.from(dogAvatarBucket).upload(path, uploadBody, { contentType: avatar.type, upsert: true });
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw sessionError;
+    const token = sessionData.session?.access_token;
+    if (!token) throw new Error("Log in again before uploading your dog's avatar.");
+
+    const uploadBody = await fetch(avatar.uri).then((fileResponse) => fileResponse.arrayBuffer());
+    const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/dogs-avatar-upload`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ dogId, fileName: avatar.name, contentType: avatar.type }),
+    });
+    const responseText = await response.text();
+
+console.log("Edge Function status:", response.status);
+console.log("Edge Function response:", responseText);
+
+const upload = responseText
+  ? (JSON.parse(responseText) as DogAvatarUploadResponse)
+  : null;
+
+if (!response.ok || !upload) {
+  throw new Error(upload?.error ?? responseText ?? "Unable to prepare your dog's avatar upload.");
+}
+
+    const { error: uploadError } = await supabase.storage.from(upload.bucket).uploadToSignedUrl(upload.path, upload.token, uploadBody, { contentType: upload.contentType });
     if (uploadError) throw uploadError;
 
-    const { data: publicUrlData } = supabase.storage.from(dogAvatarBucket).getPublicUrl(path);
-    const { error: updateError } = await supabase.from("portal_dogs").update({ profile_photo_url: publicUrlData.publicUrl }).eq("id", dogId).eq("client_id", clientId);
-    if (updateError) throw updateError;
+    const { error: updateError } = await supabase.from("portal_dogs").update({ profile_photo_url: upload.publicUrl }).eq("id", dogId).eq("client_id", clientId);
+    if (updateError) {
+      await supabase.storage.from(upload.bucket).remove([upload.path]);
+      throw updateError;
+    }
   };
 
   const submit = async () => {

@@ -2,6 +2,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.110.2";
 import { z } from "https://esm.sh/zod@4.4.3";
 
 const storageBucket = "portal-images";
+const maxAvatarFileSize = 2 * 1024 * 1024;
+const avatarMimeTypes = ["image/jpeg"];
 let bucketLimitPromise: Promise<void> | null = null;
 
 type SupabaseAuthUser = { id?: string; user?: { id?: string } };
@@ -51,7 +53,7 @@ function sanitizeFileName(fileName: string) {
 async function allowAvatarImageUploads() {
   const supabaseAdmin = getAdminClient();
   bucketLimitPromise ??= supabaseAdmin.storage
-    .updateBucket(storageBucket, { public: true, fileSizeLimit: null, allowedMimeTypes: null })
+    .updateBucket(storageBucket, { public: true, fileSizeLimit: maxAvatarFileSize, allowedMimeTypes: avatarMimeTypes })
     .then(({ error }) => {
       if (error) throw error;
     })

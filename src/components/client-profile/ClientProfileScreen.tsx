@@ -1,8 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import ClientFloatingTabBar from "@/components/client-dashboard/ClientFloatingTabBar";
+import { fetchClientProfileData, type ClientProfile } from "@/lib/clientProfileData";
+import { supabase } from "@/lib/supabase";
 
 type ProfileItem = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -19,101 +22,104 @@ const profileSections: ProfileSection[] = [
   {
     title: "Account",
     items: [
-      {
-        icon: "person-outline",
-        title: "Personal Information",
-        subtitle: "Update your personal details",
-      },
-      {
-        icon: "lock-closed-outline",
-        title: "Change Password",
-        subtitle: "Update your password",
-      },
-      {
-        icon: "notifications-outline",
-        title: "Notifications",
-        subtitle: "Manage your notification preferences",
-      },
-      {
-        icon: "card-outline",
-        title: "Payment Methods",
-        subtitle: "Manage your saved payment methods",
-      },
+      { icon: "person-outline", title: "Personal Information", subtitle: "Review your saved contact details" },
+      { icon: "lock-closed-outline", title: "Change Password", subtitle: "Update your password" },
+      { icon: "notifications-outline", title: "Notifications", subtitle: "Manage your notification preferences" },
+      { icon: "card-outline", title: "Payment Methods", subtitle: "Manage your saved payment methods" },
     ],
   },
   {
     title: "Preferences",
     items: [
-      {
-        icon: "paw-outline",
-        title: "Pet Preferences",
-        subtitle: "Manage your pet care preferences",
-      },
-      {
-        icon: "calendar-outline",
-        title: "Booking Preferences",
-        subtitle: "Set your booking and service preferences",
-      },
-      {
-        icon: "location-outline",
-        title: "Address",
-        subtitle: "Manage your saved addresses",
-      },
+      { icon: "paw-outline", title: "Pet Preferences", subtitle: "View the pets linked to your account" },
+      { icon: "calendar-outline", title: "Booking Preferences", subtitle: "Set your booking and service preferences" },
+      { icon: "location-outline", title: "Address", subtitle: "Confirm your saved care address" },
     ],
   },
   {
     title: "Support",
     items: [
-      {
-        icon: "help-circle-outline",
-        title: "Help Center",
-        subtitle: "Find answers to common questions",
-      },
-      {
-        icon: "chatbox-ellipses-outline",
-        title: "Contact Us",
-        subtitle: "Get in touch with our support team",
-      },
-      {
-        icon: "shield-checkmark-outline",
-        title: "Privacy Policy",
-        subtitle: "Learn how we protect your data",
-      },
-      {
-        icon: "document-text-outline",
-        title: "Terms of Service",
-        subtitle: "Read our terms and conditions",
-      },
+      { icon: "help-circle-outline", title: "Help Center", subtitle: "Find answers to common questions" },
+      { icon: "chatbox-ellipses-outline", title: "Contact Us", subtitle: "Get in touch with our support team" },
+      { icon: "shield-checkmark-outline", title: "Privacy Policy", subtitle: "Learn how we protect your data" },
+      { icon: "document-text-outline", title: "Terms of Service", subtitle: "Read our terms and conditions" },
     ],
   },
 ];
 
 export default function ClientProfileScreen() {
+  const [profile, setProfile] = useState<ClientProfile | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const loadProfile = useCallback(async ({ showLoading = true }: { showLoading?: boolean } = {}) => {
+    if (showLoading) setIsLoading(true);
+    setError(null);
+
+    try {
+      setProfile(await fetchClientProfileData());
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Unable to load your profile.");
+    } finally {
+      if (showLoading) setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
+
+  useEffect(() => {
+    if (!profile?.clientId) return undefined;
+
+    const refreshProfile = () => {
+      if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
+      refreshTimeoutRef.current = setTimeout(() => loadProfile({ showLoading: false }), 300);
+    };
+
+    const channel = supabase
+      .channel(`client-profile-${profile.clientId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "portal_clients", filter: `id=eq.${profile.clientId}` }, refreshProfile)
+      .on("postgres_changes", { event: "*", schema: "public", table: "portal_dogs", filter: `client_id=eq.${profile.clientId}` }, refreshProfile)
+      .on("postgres_changes", { event: "*", schema: "public", table: "portal_client_activity", filter: `client_id=eq.${profile.clientId}` }, refreshProfile)
+      .subscribe();
+
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+        refreshTimeoutRef.current = null;
+      }
+      supabase.removeChannel(channel);
+    };
+  }, [profile?.clientId, loadProfile]);
+
+  if (isLoading) {
+    return <CenteredState message="Loading your profile..." />;
+  }
+
+  if (error || !profile) {
+    return <CenteredState error={error || "Unable to load your profile."} onRetry={() => loadProfile()} />;
+  }
+
   return (
     <View style={styles.container}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
-      >
-        <ProfileHeader />
-        <ProfileSummary />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        <ProfileHeader activityCount={profile.recentActivityCount} />
+        <ProfileSummary profile={profile} />
 
         {profileSections.map((section) => (
           <View key={section.title} style={styles.section}>
             <Text style={styles.sectionTitle}>{section.title}</Text>
             <View style={styles.sectionCard}>
               {section.items.map((item, index) => (
-                <ProfileRow
-                  key={item.title}
-                  item={item}
-                  isLast={index === section.items.length - 1}
-                />
+                <ProfileRow key={item.title} item={item} isLast={index === section.items.length - 1} />
               ))}
             </View>
           </View>
         ))}
 
-        <TouchableOpacity style={styles.logoutButton} activeOpacity={0.85}>
+        <TouchableOpacity style={styles.logoutButton} activeOpacity={0.85} onPress={() => supabase.auth.signOut()}>
           <Ionicons name="log-out-outline" size={21} color="#EF2929" />
           <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>
@@ -124,7 +130,7 @@ export default function ClientProfileScreen() {
   );
 }
 
-function ProfileHeader() {
+function ProfileHeader({ activityCount }: { activityCount: number }) {
   return (
     <View style={styles.header}>
       <TouchableOpacity style={styles.headerIcon} activeOpacity={0.8}>
@@ -133,33 +139,29 @@ function ProfileHeader() {
       <Text style={styles.headerTitle}>Profile</Text>
       <TouchableOpacity style={styles.headerIcon} activeOpacity={0.8}>
         <Ionicons name="notifications-outline" size={27} color="#141A33" />
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>2</Text>
-        </View>
+        {activityCount ? <View style={styles.badge}><Text style={styles.badgeText}>{Math.min(activityCount, 9)}</Text></View> : null}
       </TouchableOpacity>
     </View>
   );
 }
 
-function ProfileSummary() {
+function ProfileSummary({ profile }: { profile: ClientProfile }) {
   return (
     <TouchableOpacity style={styles.summaryCard} activeOpacity={0.88}>
       <View style={styles.avatarWrap}>
-        <Image
-          source="https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=300&q=80"
-          style={styles.avatar}
-          contentFit="cover"
-        />
+        <Image source={profile.avatarUrl} style={styles.avatar} contentFit="cover" />
         <View style={styles.editAvatarButton}>
-          <Ionicons name="pencil" size={18} color="#5B3DF5" />
+          <Ionicons name="sync" size={18} color="#5B3DF5" />
         </View>
       </View>
 
       <View style={styles.summaryDetails}>
-        <Text style={styles.name}>Sarah Johnson</Text>
-        <ContactLine icon="location-outline" text="Dublin, Ireland" />
-        <ContactLine icon="mail-outline" text="sarah.johnson@email.com" />
-        <ContactLine icon="call-outline" text="+353 87 123 4567" />
+        <Text style={styles.name}>{profile.fullName}</Text>
+        <ContactLine icon="paw-outline" text={profile.dogNames} />
+        <ContactLine icon="location-outline" text={profile.address} />
+        <ContactLine icon="mail-outline" text={profile.email} />
+        <ContactLine icon="call-outline" text={profile.phone} />
+        <Text style={styles.memberSince}>{profile.memberSince}</Text>
       </View>
 
       <Ionicons name="chevron-forward" size={24} color="#24315F" />
@@ -193,16 +195,26 @@ function ProfileRow({ item, isLast }: { item: ProfileItem; isLast: boolean }) {
   );
 }
 
+function CenteredState({ message, error, onRetry }: { message?: string; error?: string; onRetry?: () => void }) {
+  return (
+    <View style={[styles.container, styles.centered]}>
+      {message ? <ActivityIndicator color="#5B3DF5" size="large" /> : null}
+      <Text style={error ? styles.errorTitle : styles.loadingText}>{error ? "Profile unavailable" : message}</Text>
+      {error ? <Text style={styles.errorMessage}>{error}</Text> : null}
+      {onRetry ? <TouchableOpacity style={styles.retryButton} activeOpacity={0.86} onPress={onRetry}><Text style={styles.retryText}>Try again</Text></TouchableOpacity> : null}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: "#F8F9FD",
-    flex: 1,
-  },
-  content: {
-    paddingBottom: 142,
-    paddingHorizontal: 22,
-    paddingTop: 60,
-  },
+  container: { backgroundColor: "#F8F9FD", flex: 1 },
+  content: { paddingBottom: 142, paddingHorizontal: 22, paddingTop: 60 },
+  centered: { alignItems: "center", justifyContent: "center", padding: 24 },
+  loadingText: { color: "#70758E", fontWeight: "600", marginTop: 14 },
+  errorTitle: { color: "#1D2238", fontSize: 22, fontWeight: "700", marginBottom: 8 },
+  errorMessage: { color: "#70758E", lineHeight: 22, marginBottom: 18, textAlign: "center" },
+  retryButton: { backgroundColor: "#5B3DF5", borderRadius: 16, paddingHorizontal: 22, paddingVertical: 14 },
+  retryText: { color: "#FFF", fontWeight: "700" },
   header: {
     alignItems: "center",
     flexDirection: "row",
@@ -210,17 +222,8 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     marginTop: 12,
   },
-  headerIcon: {
-    alignItems: "center",
-    height: 44,
-    justifyContent: "center",
-    width: 44,
-  },
-  headerTitle: {
-    color: "#080D20",
-    fontSize: 28,
-    fontWeight: "800",
-  },
+  headerIcon: { alignItems: "center", height: 44, justifyContent: "center", width: 44 },
+  headerTitle: { color: "#080D20", fontSize: 28, fontWeight: "800" },
   badge: {
     alignItems: "center",
     backgroundColor: "#EF2852",
@@ -232,11 +235,7 @@ const styles = StyleSheet.create({
     top: 0,
     width: 24,
   },
-  badgeText: {
-    color: "#FFF",
-    fontSize: 12,
-    fontWeight: "800",
-  },
+  badgeText: { color: "#FFF", fontSize: 12, fontWeight: "800" },
   summaryCard: {
     alignItems: "center",
     backgroundColor: "#FBF9FF",
@@ -252,15 +251,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 20,
   },
-  avatarWrap: {
-    height: 112,
-    width: 112,
-  },
-  avatar: {
-    borderRadius: 56,
-    height: 112,
-    width: 112,
-  },
+  avatarWrap: { height: 112, width: 112 },
+  avatar: { borderRadius: 56, height: 112, width: 112 },
   editAvatarButton: {
     alignItems: "center",
     backgroundColor: "#FFF",
@@ -276,35 +268,13 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     width: 40,
   },
-  summaryDetails: {
-    flex: 1,
-    gap: 10,
-  },
-  name: {
-    color: "#080D20",
-    fontSize: 25,
-    fontWeight: "800",
-    marginBottom: 2,
-  },
-  contactLine: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 11,
-  },
-  contactText: {
-    color: "#53608F",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  section: {
-    marginBottom: 22,
-  },
-  sectionTitle: {
-    color: "#080D20",
-    fontSize: 22,
-    fontWeight: "800",
-    marginBottom: 12,
-  },
+  summaryDetails: { flex: 1, gap: 10 },
+  name: { color: "#080D20", fontSize: 25, fontWeight: "800", marginBottom: 2 },
+  contactLine: { alignItems: "center", flexDirection: "row", gap: 11 },
+  contactText: { color: "#53608F", flex: 1, fontSize: 16, fontWeight: "600" },
+  memberSince: { color: "#7A6AF8", fontSize: 14, fontWeight: "800", marginTop: 2 },
+  section: { marginBottom: 22 },
+  sectionTitle: { color: "#080D20", fontSize: 22, fontWeight: "800", marginBottom: 12 },
   sectionCard: {
     backgroundColor: "#FFF",
     borderColor: "#E6EAF5",
@@ -312,11 +282,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     overflow: "hidden",
   },
-  row: {
-    alignItems: "center",
-    flexDirection: "row",
-    paddingLeft: 16,
-  },
+  row: { alignItems: "center", flexDirection: "row", paddingLeft: 16 },
   rowIconWrap: {
     alignItems: "center",
     backgroundColor: "#F3EEFF",
@@ -334,21 +300,9 @@ const styles = StyleSheet.create({
     minHeight: 82,
     paddingRight: 18,
   },
-  rowDivider: {
-    borderBottomColor: "#E6EAF5",
-    borderBottomWidth: 1,
-  },
-  rowTitle: {
-    color: "#10162C",
-    fontSize: 17,
-    fontWeight: "800",
-    marginBottom: 5,
-  },
-  rowSubtitle: {
-    color: "#53608F",
-    fontSize: 15,
-    fontWeight: "600",
-  },
+  rowDivider: { borderBottomColor: "#E6EAF5", borderBottomWidth: 1 },
+  rowTitle: { color: "#10162C", fontSize: 17, fontWeight: "800", marginBottom: 5 },
+  rowSubtitle: { color: "#53608F", fontSize: 15, fontWeight: "600" },
   logoutButton: {
     alignItems: "center",
     backgroundColor: "#FFF0F0",
@@ -361,9 +315,5 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingVertical: 19,
   },
-  logoutText: {
-    color: "#EF2929",
-    fontSize: 17,
-    fontWeight: "800",
-  },
+  logoutText: { color: "#EF2929", fontSize: 17, fontWeight: "800" },
 });
