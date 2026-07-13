@@ -22,13 +22,15 @@ export type Booking = {
   dog: string;
   breed: string;
   dogImage: string;
-  service: "Dog Walk" | "Training Session";
+  service: string;
   serviceIcon: keyof typeof Ionicons.glyphMap;
   serviceDetail: string;
   scheduleDay: string;
   time: string;
   duration: string;
   status: BookingStatus;
+  startsAtIso?: string;
+  endsAtIso?: string;
 };
 
 export type BookingsData = {
@@ -141,6 +143,8 @@ function mapBookingRow(row: PortalBookingRow): Booking {
     breed: row.location || "Location TBC",
     dogImage: row.cover_image_url || fallbackDogImage,
     service: getService(serviceName),
+    startsAtIso: row.starts_at || undefined,
+    endsAtIso: row.ends_at || undefined,
     serviceIcon: getServiceIcon(serviceName),
     serviceDetail: row.notes || row.sync_status || row.source || "Scheduled service",
     scheduleDay: startsAt ? formatScheduleDay(startsAt) : "Date TBC",
@@ -171,11 +175,15 @@ function normalizeBookingStatus(status: string | null): BookingStatus {
 }
 
 function getService(serviceName: string): Booking["service"] {
-  return /train/i.test(serviceName) ? "Training Session" : "Dog Walk";
+  return serviceName || "Dog Walk";
 }
 
 function getServiceIcon(serviceName: string): keyof typeof Ionicons.glyphMap {
-  return /train/i.test(serviceName) ? "school-outline" : "accessibility-outline";
+  if (/train/i.test(serviceName)) return "school-outline";
+  if (/sit|house|overnight/i.test(serviceName)) return "home-outline";
+  if (/drop|visit|check/i.test(serviceName)) return "home-outline";
+
+  return "paw-outline";
 }
 
 function formatBookingId(id: string) {

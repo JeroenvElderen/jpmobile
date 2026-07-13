@@ -4,11 +4,8 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View
 import ClientFloatingTabBar from "@/components/client-dashboard/ClientFloatingTabBar";
 import { fetchClientBookingsData, type BookingsData } from "@/lib/bookingData";
 import { supabase } from "@/lib/supabase";
-import BookingFilters from "./BookingFilters";
-import BookingList from "./BookingList";
-import BookingPagination from "./BookingPagination";
+import BookingCalendar from "@/components/bookings/BookingCalendar";
 import BookingsHeader from "./BookingsHeader";
-import BookingStatsGrid from "./BookingStatsGrid";
 
 export default function ClientBookingsScreen() {
     const [bookingsData, setBookingsData] = useState<BookingsData | null>(null);
@@ -69,9 +66,7 @@ export default function ClientBookingsScreen() {
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <BookingsHeader />
-        <BookingFilters />
-        <BookingList bookings={bookingsData.bookings} />
-        <BookingPagination />
+        <BookingCalendar bookings={bookingsData.bookings} />
       </ScrollView>
 
       <ClientFloatingTabBar activeRoute="bookings" />
