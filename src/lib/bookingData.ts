@@ -17,6 +17,7 @@ export type BookingStat = {
 
 export type Booking = {
   id: string;
+  rawId: string;
   createdAt: string;
   client: string;
   dog: string;
@@ -137,6 +138,7 @@ function mapBookingRow(row: PortalBookingRow): Booking {
 
   return {
     id: formatBookingId(row.id),
+    rawId: row.id,
     createdAt: startsAt ? formatDate(startsAt) : "Date TBC",
     client: row.client_name || "Client TBC",
     dog: row.dog_name || "Dog TBC",
