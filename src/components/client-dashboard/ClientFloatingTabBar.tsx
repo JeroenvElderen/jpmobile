@@ -23,6 +23,7 @@ type Props = {
 const serviceOptions = ["Dog walking", "Drop-in visit", "Dog sitting", "Other"];
 const durationOptions = ["30 minutes", "45 minutes", "1 hour", "1 hour 30 minutes", "2 hours", "Half day", "Full day", "Overnight / 24 hours"];
 const businessWhatsappNumber = process.env.EXPO_PUBLIC_BUSINESS_WHATSAPP_NUMBER || "31600000000";
+const dogAvatarBucket = "portal-images";
 const createEmptyDogDraft = (id = String(Date.now())): DogDraft => ({ id, name: "", breed: "", age: "", notes: "", avatar: null });
 
 export default function ClientFloatingTabBar({ activeRoute = "home" }: Props) {
@@ -141,24 +142,15 @@ function ClientQuickActionModal({ action, onClose }: { action: QuickAction; onCl
   };
 
   const uploadDogAvatar = async (dogId: string, avatar: DogAvatarFile) => {
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) throw sessionError;
-    const token = sessionData.session?.access_token;
-    if (!token) throw new Error("You must be signed in to upload a dog avatar.");
-
-    const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/dog-avatar-upload`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ dogId, fileName: avatar.name, contentType: avatar.type }),
-    });
-    const upload = await response.json();
-    if (!response.ok) throw new Error(upload.error || "Unable to prepare avatar upload.");
+    if (!clientId) throw new Error("Unable to find your client profile.");
 
     const uploadBody = await fetch(avatar.uri).then((fileResponse) => fileResponse.blob());
-    const { error: uploadError } = await supabase.storage.from(upload.bucket).uploadToSignedUrl(upload.path, upload.token, uploadBody, { contentType: upload.contentType });
+    const path = `dogs/${clientId}/${dogId}/avatar-${Date.now()}.jpg`;
+    const { error: uploadError } = await supabase.storage.from(dogAvatarBucket).upload(path, uploadBody, { contentType: avatar.type, upsert: true });
     if (uploadError) throw uploadError;
 
-    const { error: updateError } = await supabase.from("portal_dogs").update({ profile_photo_url: upload.publicUrl }).eq("id", dogId).eq("client_id", clientId);
+    const { data: publicUrlData } = supabase.storage.from(dogAvatarBucket).getPublicUrl(path);
+    const { error: updateError } = await supabase.from("portal_dogs").update({ profile_photo_url: publicUrlData.publicUrl }).eq("id", dogId).eq("client_id", clientId);
     if (updateError) throw updateError;
   };
 
