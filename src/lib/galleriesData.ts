@@ -33,6 +33,12 @@ export type Gallery = {
 
 export type GalleryClient = { id: string; fullName: string };
 export type GalleryDog = { id: string; name: string; clientId: string };
+export type GalleryUploadFile = {
+  name: string;
+  type?: string | null;
+  uri?: string;
+  file?: File;
+};
 
 type GalleryRow = {
   id: string;
@@ -134,7 +140,14 @@ export async function fetchGalleryFormOptions() {
   };
 }
 
-export async function createGalleryWithOriginals(input: { title: string; clientId: string; dogId: string; files: File[] }) {
+async function toUploadBody(file: GalleryUploadFile) {
+  if (file.file) return file.file;
+  if (!file.uri) throw new Error("Selected photo is missing a local file URI.");
+  const response = await fetch(file.uri);
+  return response.blob();
+}
+
+export async function createGalleryWithOriginals(input: { title: string; clientId: string; dogId: string; files: GalleryUploadFile[] }) {
   const { data: gallery, error: galleryError } = await supabase
     .from("portal_galleries")
     .insert({ title: input.title.trim() || "New gallery", client_id: input.clientId, dog_id: input.dogId, status: "draft" })
@@ -150,6 +163,7 @@ export async function createGalleryWithOriginals(input: { title: string; clientI
   if (!token) throw new Error("You must be signed in to upload gallery photos.");
 
   for (const file of input.files) {
+    const uploadBody = await toUploadBody(file);
     const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/gallery-upload`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -157,7 +171,7 @@ export async function createGalleryWithOriginals(input: { title: string; clientI
     });
     const upload = await response.json();
     if (!response.ok) throw new Error(upload.error || "Unable to prepare upload.");
-    const { error: uploadError } = await supabase.storage.from(upload.bucket).uploadToSignedUrl(upload.path, upload.token, file, { contentType: upload.contentType });
+    const { error: uploadError } = await supabase.storage.from(upload.bucket).uploadToSignedUrl(upload.path, upload.token, uploadBody, { contentType: upload.contentType });
     if (uploadError) throw uploadError;
     const { error: itemError } = await supabase.from("portal_gallery_items").insert({ gallery_id: gallery.id, client_id: input.clientId, dog_id: input.dogId, image_url: upload.publicUrl, alt_text: file.name });
     if (itemError) throw itemError;

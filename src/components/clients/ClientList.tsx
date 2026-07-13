@@ -1,14 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { clients, type Client } from "@/lib/clientsData";
+import type { Client } from "@/lib/clientsData";
 
 const statusStyles = {
   Active: { bg: "#DDF6DC", color: "#178A22" },
   Inactive: { bg: "#FFF0D8", color: "#F97316" },
 } as const;
 
-export default function ClientList() {
+export default function ClientList({ clients }: { clients: Client[] }) {
   return (
     <View style={styles.container}>
       {clients.map((client) => (

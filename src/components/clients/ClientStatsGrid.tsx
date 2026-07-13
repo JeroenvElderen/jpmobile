@@ -1,12 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, View } from "react-native";
 
-import { clientStats } from "@/lib/clientsData";
+import type { ClientStat } from "@/lib/clientsData";
 
-export default function ClientStatsGrid() {
+export default function ClientStatsGrid({ stats }: { stats: ClientStat[] }) {
   return (
     <View style={styles.grid}>
-      {clientStats.map((stat) => (
+      {stats.map((stat) => (
         <View key={stat.title} style={styles.card}>
           <View style={[styles.iconCircle, { backgroundColor: stat.iconBackground }]}>
             <Ionicons name={stat.icon} size={25} color={stat.iconColor} />
@@ -17,7 +17,7 @@ export default function ClientStatsGrid() {
             <Ionicons name="arrow-up" size={14} color="#1FD32B" />
             <Text style={styles.change}>{stat.change}</Text>
           </View>
-          <Text style={styles.caption}>from last month</Text>
+          <Text style={styles.caption}>updated in realtime</Text>
         </View>
       ))}
     </View>

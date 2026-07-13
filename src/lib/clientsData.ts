@@ -1,5 +1,7 @@
 import type { Ionicons } from "@expo/vector-icons";
 
+import { supabase } from "@/lib/supabase";
+
 export type ClientStatus = "Active" | "Inactive";
 
 export type Client = {
@@ -22,110 +24,124 @@ export type ClientStat = {
   iconBackground: string;
 };
 
-export const clientStats: ClientStat[] = [
-  {
-    title: "Total Clients",
-    value: "42",
-    change: "12%",
-    icon: "people-outline",
-    iconColor: "#5B3DF5",
-    iconBackground: "#F3EEFF",
-  },
-  {
-    title: "Active",
-    value: "36",
-    change: "8%",
-    icon: "heart-outline",
-    iconColor: "#F97316",
-    iconBackground: "#FFF5EB",
-  },
-  {
-    title: "Regulars",
-    value: "24",
-    change: "15%",
-    icon: "shield-checkmark-outline",
-    iconColor: "#16A34A",
-    iconBackground: "#ECFDF3",
-  },
-  {
-    title: "New This Month",
-    value: "6",
-    change: "5%",
-    icon: "star-outline",
-    iconColor: "#EF476F",
-    iconBackground: "#FDECF1",
-  },
-];
+export type ClientsData = {
+  stats: ClientStat[];
+  clients: Client[];
+};
 
-export const clients: Client[] = [
-  {
-    id: "1",
-    name: "Sarah Johnson",
-    email: "sarah.johnson@example.com",
-    dogs: "Max • Golden Retriever",
-    bookings: 12,
-    memberSince: "Member since 2023",
-    status: "Active",
-    avatar: "https://i.pravatar.cc/220?img=47",
-  },
-  {
-    id: "2",
-    name: "James Smith",
-    email: "james.smith@example.com",
-    dogs: "Luna • Labrador Retriever",
-    bookings: 8,
-    memberSince: "Member since 2024",
-    status: "Active",
-    avatar: "https://i.pravatar.cc/220?img=12",
-  },
-  {
-    id: "3",
-    name: "Emily Davis",
-    email: "emily.davis@example.com",
-    dogs: "Buddy • Beagle",
-    bookings: 15,
-    memberSince: "Member since 2022",
-    status: "Active",
-    avatar: "https://i.pravatar.cc/220?img=32",
-  },
-  {
-    id: "4",
-    name: "Michael Brown",
-    email: "michael.brown@example.com",
-    dogs: "Charlie • Goldendoodle",
-    bookings: 10,
-    memberSince: "Member since 2023",
-    status: "Active",
-    avatar: "https://i.pravatar.cc/220?img=15",
-  },
-  {
-    id: "5",
-    name: "Olivia Wilson",
-    email: "olivia.wilson@example.com",
-    dogs: "Milo • Husky",
-    bookings: 6,
-    memberSince: "Member since 2024",
-    status: "Active",
-    avatar: "https://i.pravatar.cc/220?img=44",
-  },
-  {
-    id: "6",
-    name: "Daniel Taylor",
-    email: "daniel.taylor@example.com",
-    dogs: "Poppy • Pug",
-    bookings: 0,
-    memberSince: "Member since 2021",
-    status: "Inactive",
-    avatar: "https://i.pravatar.cc/220?img=14",
-  },
-  {
-    id: "7",
-    name: "Sophia Anderson",
-    email: "sophia.anderson@example.com",
-    dogs: "Bella • Cavalier King Charles",
-    bookings: 9,
-    memberSince: "Member since 2023",
-    status: "Active",
-    avatar: "https://i.pravatar.cc/220?img=48",
-  },
-];
+type PortalClientRow = {
+  id: string;
+  full_name: string;
+  email: string;
+  created_at: string | null;
+  avatar_url: string | null;
+  status: string | null;
+  portal_dogs?: { name: string | null; breed: string | null }[] | null;
+};
+
+type PortalBookingClientRow = {
+  client_id: string | null;
+};
+
+const fallbackClientImage = "https://i.pravatar.cc/220?u=client";
+
+export async function fetchAdminClientsData(): Promise<ClientsData> {
+  const { data: clients, error: clientsError } = await supabase
+    .from("portal_clients")
+    .select("id, full_name, email, created_at, avatar_url, status, portal_dogs(name, breed)")
+    .order("full_name", { ascending: true })
+    .returns<PortalClientRow[]>();
+
+  if (clientsError) {
+    throw clientsError;
+  }
+
+  const bookingCounts = await fetchClientBookingCounts();
+  const mappedClients = clients.map((client) => mapClientRow(client, bookingCounts));
+
+  return {
+    stats: buildClientStats(mappedClients, clients),
+    clients: mappedClients,
+  };
+}
+
+async function fetchClientBookingCounts() {
+  const { data, error } = await supabase
+    .from("portal_bookings")
+    .select("client_id")
+    .returns<PortalBookingClientRow[]>();
+
+  if (error) {
+    throw error;
+  }
+
+  return data.reduce<Record<string, number>>((counts, booking) => {
+    if (booking.client_id) {
+      counts[booking.client_id] = (counts[booking.client_id] || 0) + 1;
+    }
+
+    return counts;
+  }, {});
+}
+
+function mapClientRow(row: PortalClientRow, bookingCounts: Record<string, number>): Client {
+  return {
+    id: row.id,
+    name: row.full_name,
+    email: row.email,
+    dogs: formatDogs(row.portal_dogs),
+    bookings: bookingCounts[row.id] || 0,
+    memberSince: formatMemberSince(row.created_at),
+    status: normalizeClientStatus(row.status),
+    avatar: row.avatar_url || `${fallbackClientImage}-${row.id}`,
+  };
+}
+
+function formatDogs(dogs?: PortalClientRow["portal_dogs"]) {
+  if (!dogs?.length) return "No dogs linked";
+
+  return dogs
+    .map((dog) => [dog.name || "Dog TBC", dog.breed].filter(Boolean).join(" • "))
+    .join("\n");
+}
+
+function formatMemberSince(createdAt: string | null) {
+  if (!createdAt) return "Member since TBC";
+
+  const createdDate = new Date(createdAt);
+
+  if (Number.isNaN(createdDate.getTime())) return "Member since TBC";
+
+  return `Member since ${createdDate.getFullYear()}`;
+}
+
+function buildClientStats(clients: Client[], rawClients: PortalClientRow[]): ClientStat[] {
+  const total = clients.length;
+  const active = clients.filter((client) => client.status === "Active").length;
+  const regulars = clients.filter((client) => client.bookings >= 3).length;
+  const newThisMonth = rawClients.filter((client) => isCurrentMonth(client.created_at)).length;
+
+  return [
+    { title: "Total Clients", value: String(total), change: "Live", icon: "people-outline", iconColor: "#5B3DF5", iconBackground: "#F3EEFF" },
+    { title: "Active", value: String(active), change: "Live", icon: "heart-outline", iconColor: "#F97316", iconBackground: "#FFF5EB" },
+    { title: "Regulars", value: String(regulars), change: "Live", icon: "shield-checkmark-outline", iconColor: "#16A34A", iconBackground: "#ECFDF3" },
+    { title: "New This Month", value: String(newThisMonth), change: "Live", icon: "star-outline", iconColor: "#EF476F", iconBackground: "#FDECF1" },
+  ];
+}
+
+function isCurrentMonth(createdAt: string | null) {
+  if (!createdAt) return false;
+
+  const createdDate = new Date(createdAt);
+  const now = new Date();
+
+  return (
+    !Number.isNaN(createdDate.getTime()) &&
+    createdDate.getFullYear() === now.getFullYear() &&
+    createdDate.getMonth() === now.getMonth()
+  );
+}
+
+function normalizeClientStatus(status: string | null): ClientStatus {
+  return status?.toLowerCase() === "inactive" ? "Inactive" : "Active";
+}

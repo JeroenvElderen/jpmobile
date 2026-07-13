@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { useMemo, useState } from "react";
 import { ActivityIndicator, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
-import { createGalleryWithOriginals, type GalleryClient, type GalleryDog } from "@/lib/galleriesData";
+import { createGalleryWithOriginals, type GalleryClient, type GalleryDog, type GalleryUploadFile } from "@/lib/galleriesData";
 
 type Props = {
   clients: GalleryClient[];
@@ -16,7 +17,7 @@ export default function GalleryCreateModal({ clients, dogs, onClose, onCreated, 
   const [title, setTitle] = useState("");
   const [clientId, setClientId] = useState(clients[0]?.id ?? "");
   const [dogId, setDogId] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<GalleryUploadFile[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,6 +44,31 @@ export default function GalleryCreateModal({ clients, dogs, onClose, onCreated, 
     } finally {
       setSaving(false);
     }
+  }
+
+  async function pickNativePhotos() {
+    setError(null);
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      setError("Photo library permission is required to upload gallery photos.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsMultipleSelection: true,
+      mediaTypes: ["images"],
+      quality: 1,
+    });
+
+    if (result.canceled) return;
+
+    setFiles(
+      result.assets.map((asset, index) => ({
+        name: asset.fileName || `gallery-photo-${Date.now()}-${index + 1}.jpg`,
+        type: asset.mimeType || "image/jpeg",
+        uri: asset.uri,
+      })),
+    );
   }
 
   return (
@@ -85,9 +111,12 @@ export default function GalleryCreateModal({ clients, dogs, onClose, onCreated, 
 
           <Text style={styles.label}>Original photos</Text>
           {Platform.OS === "web" ? (
-            <input style={webFileInputStyle} type="file" accept="image/*" multiple onChange={(event) => setFiles(Array.from(event.currentTarget.files ?? []))} />
+            <input style={webFileInputStyle} type="file" accept="image/*" multiple onChange={(event) => setFiles(Array.from(event.currentTarget.files ?? []).map((file) => ({ name: file.name, type: file.type, file })))} />
           ) : (
-            <View style={styles.nativeUploadNotice}><Text style={styles.helpText}>Photo picking is available from the web admin. Uploads keep originals with no app-enforced count or size limit.</Text></View>
+            <TouchableOpacity style={styles.nativePickerButton} disabled={saving} onPress={pickNativePhotos}>
+              <Ionicons name="images-outline" size={18} color="#4B22C8" />
+              <Text style={styles.nativePickerText}>{files.length > 0 ? `${files.length} photo${files.length === 1 ? "" : "s"} selected` : "Choose photos from phone gallery"}</Text>
+            </TouchableOpacity>
           )}
           <Text style={styles.helpText}>Photos upload directly to Supabase as original files with no app-enforced count or size limit; no WebP conversion or resizing is done.</Text>
 
@@ -117,7 +146,8 @@ const styles = StyleSheet.create({
   optionActive: { backgroundColor: "#F0EAFF" },
   optionText: { color: "#16162A", fontWeight: "800" },
   emptySelect: { color: "#16162A", fontWeight: "700", padding: 13 },
-  nativeUploadNotice: { borderColor: "#E4E4EA", borderRadius: 12, borderWidth: 1, marginBottom: 12, padding: 14 },
+  nativePickerButton: { alignItems: "center", borderColor: "#E4E4EA", borderRadius: 12, borderWidth: 1, flexDirection: "row", gap: 10, marginBottom: 12, minHeight: 48, padding: 14 },
+  nativePickerText: { color: "#4B22C8", fontSize: 14, fontWeight: "800" },
   helpText: { color: "#56576C", fontSize: 12, lineHeight: 18, marginBottom: 20 },
   error: { color: "#B42318", fontSize: 13, fontWeight: "700", marginBottom: 12 },
   createButton: { alignItems: "center", backgroundColor: "#5B2FA8", borderRadius: 12, minHeight: 44, justifyContent: "center" },
