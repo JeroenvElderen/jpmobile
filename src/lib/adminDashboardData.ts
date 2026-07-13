@@ -32,6 +32,9 @@ export type AdminActivityItem = {
   time: string;
 };
 
+export type AdminFormClientOption = { id: string; name: string; address: string };
+export type AdminFormDogOption = { id: string; ids: string[]; name: string };
+
 export type AdminDashboardData = {
   stats: AdminDashboardStat[];
   schedule: AdminScheduleItem[];
@@ -39,6 +42,12 @@ export type AdminDashboardData = {
   revenueTrend: number[];
   activities: AdminActivityItem[];
   notificationCount: number;
+  monthLabel?: string;
+  formOptions?: {
+    clients: AdminFormClientOption[];
+    dogsByClient: Record<string, AdminFormDogOption[]>;
+    services: string[];
+  };
 };
 
 type AdminDashboardResponse = {
@@ -58,8 +67,32 @@ export async function createAdminDog(input: { clientId: string; name: string; br
   await invokeAdminDashboard({ type: "create-dog", payload: input });
 }
 
-export async function createAdminBooking(input: { clientId: string; dogId: string; serviceName: string; startsAt: string; location?: string; notes?: string }) {
+export async function createAdminBooking(input: { clientId: string; dogId?: string; dogIds?: string[]; serviceName: string; startsAt: string; location?: string; notes?: string }) {
   await invokeAdminDashboard({ type: "create-booking", payload: input });
+}
+
+export async function updateAdminBooking(input: { bookingId: string; clientId?: string; dogId?: string; dogIds?: string[]; serviceName?: string; startsAt?: string; location?: string; notes?: string; status?: string }) {
+  await invokeAdminDashboard({ type: "update-booking", payload: input });
+}
+
+export async function cancelAdminBooking(bookingId: string) {
+  await invokeAdminDashboard({ type: "cancel-booking", payload: { bookingId } });
+}
+
+export async function confirmAdminBooking(bookingId: string) {
+  await invokeAdminDashboard({ type: "confirm-booking", payload: { bookingId } });
+}
+
+export async function rescheduleAdminBooking(bookingId: string, startsAt: string) {
+  await invokeAdminDashboard({ type: "reschedule-booking", payload: { bookingId, startsAt } });
+}
+
+export async function setAdminDogStatus(dogId: string, active: boolean) {
+  await invokeAdminDashboard({ type: "set-dog-status", payload: { dogId, active } });
+}
+
+export async function setAdminClientStatus(clientId: string, active: boolean) {
+  await invokeAdminDashboard({ type: "set-client-status", payload: { clientId, active } });
 }
 
 async function invokeAdminDashboard(body: Record<string, unknown>) {

@@ -2,7 +2,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.110.2";
 
 const ADMIN_EMAIL = "jeroen@jeroenandpaws.com";
 const fallbackDogImage = "https://placedog.net/220/220?id=301";
-const trendDays = 7;
+const trendMonths = 6;
+const defaultServices = ["Dog Walk", "Training Session", "Drop-in Visit", "Daycare", "Overnight Stay"];
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,10 +14,17 @@ type AdminAction =
   | { type: "fetch" }
   | { type: "create-client"; payload: { fullName: string; email: string; phone?: string } }
   | { type: "create-dog"; payload: { clientId: string; name: string; breed?: string; age?: string; notes?: string } }
-  | { type: "create-booking"; payload: { clientId: string; dogId: string; serviceName: string; startsAt: string; location?: string; notes?: string } };
+  | { type: "create-booking"; payload: { clientId: string; dogId?: string; dogIds?: string[]; serviceName: string; startsAt: string; location?: string; notes?: string } }
+  | { type: "update-booking"; payload: { bookingId: string; clientId?: string; dogId?: string; dogIds?: string[]; serviceName?: string; startsAt?: string; location?: string; notes?: string; status?: string } }
+  | { type: "cancel-booking"; payload: { bookingId: string } }
+  | { type: "confirm-booking"; payload: { bookingId: string } }
+  | { type: "reschedule-booking"; payload: { bookingId: string; startsAt: string } }
+  | { type: "set-dog-status"; payload: { dogId: string; active: boolean } }
+  | { type: "set-client-status"; payload: { clientId: string; active: boolean } };
 
 type PortalBooking = {
   id: string;
+  client_id?: string | null;
   dog_name: string | null;
   service_name: string | null;
   starts_at: string | null;
@@ -25,6 +33,18 @@ type PortalBooking = {
   cover_image_url: string | null;
   price_cents?: number | null;
   total_cents?: number | null;
+};
+
+type PortalClientOption = {
+  id: string;
+  full_name: string;
+  address: string | null;
+};
+
+type PortalDogOption = {
+  id: string;
+  client_id: string;
+  name: string;
 };
 
 type PortalActivity = {
@@ -88,6 +108,36 @@ Deno.serve(async (req) => {
       return json({ data: await fetchDashboard(adminClient) });
     }
 
+    if (action.type === "update-booking") {
+      await updateBookingRecord(adminClient, action.payload);
+      return json({ data: await fetchDashboard(adminClient) });
+    }
+
+    if (action.type === "cancel-booking") {
+      await setBookingStatus(adminClient, action.payload.bookingId, "cancelled");
+      return json({ data: await fetchDashboard(adminClient) });
+    }
+
+    if (action.type === "confirm-booking") {
+      await setBookingStatus(adminClient, action.payload.bookingId, "confirmed");
+      return json({ data: await fetchDashboard(adminClient) });
+    }
+
+    if (action.type === "reschedule-booking") {
+      await rescheduleBooking(adminClient, action.payload);
+      return json({ data: await fetchDashboard(adminClient) });
+    }
+
+    if (action.type === "set-dog-status") {
+      await setDogStatus(adminClient, action.payload);
+      return json({ data: await fetchDashboard(adminClient) });
+    }
+
+    if (action.type === "set-client-status") {
+      await setClientStatus(adminClient, action.payload);
+      return json({ data: await fetchDashboard(adminClient) });
+    }
+
     return json({ error: "Unsupported admin action." }, 400);
   } catch (error) {
     return json({ error: getErrorMessage(error) }, 500);
@@ -96,54 +146,60 @@ Deno.serve(async (req) => {
 
 async function fetchDashboard(supabase: ReturnType<typeof createClient>) {
   const now = new Date();
-  const todayStart = startOfDay(now);
-  const tomorrowStart = addDays(todayStart, 1);
-  const weekStart = addDays(todayStart, -(trendDays - 1));
+  const monthStart = startOfMonth(now);
+  const previousMonthStart = addMonths(monthStart, -1);
+  const nextMonthStart = addMonths(monthStart, 1);
+  const trendStart = addMonths(monthStart, -(trendMonths - 1));
 
-  const [todayBookings, yesterdayBookings, pendingBookings, completedBookings, scheduleResult, trendResult, activitiesResult] = await Promise.all([
-    countRows(supabase, "portal_bookings", "starts_at", todayStart, tomorrowStart),
-    countRows(supabase, "portal_bookings", "starts_at", addDays(todayStart, -1), todayStart),
+  const [monthBookings, previousMonthBookings, pendingBookings, completedBookings, scheduleResult, trendResult, activitiesResult, clientsResult, dogsResult, servicesResult] = await Promise.all([
+    countRows(supabase, "portal_bookings", "starts_at", monthStart, nextMonthStart),
+    countRows(supabase, "portal_bookings", "starts_at", previousMonthStart, monthStart),
     countRows(supabase, "portal_bookings", undefined, undefined, undefined, "status", "pending"),
     countRows(supabase, "portal_bookings", undefined, undefined, undefined, "status", "completed"),
     supabase
       .from("admin_booking_calendar")
       .select("id, dog_name, service_name, starts_at, location, status, cover_image_url")
-      .gte("starts_at", todayStart.toISOString())
-      .lt("starts_at", tomorrowStart.toISOString())
+      .gte("starts_at", monthStart.toISOString())
+      .lt("starts_at", nextMonthStart.toISOString())
       .order("starts_at", { ascending: true })
-      .limit(5),
+      .limit(10),
     supabase
       .from("admin_booking_calendar")
       .select("id, starts_at, status")
-      .gte("starts_at", weekStart.toISOString())
+      .gte("starts_at", trendStart.toISOString())
       .order("starts_at", { ascending: true }),
     supabase
       .from("portal_client_activity")
       .select("id, activity_type, title, body, created_at")
       .order("created_at", { ascending: false })
       .limit(5),
+    supabase.from("portal_clients").select("id, full_name, address").order("full_name", { ascending: true }),
+    supabase.from("portal_dogs").select("id, client_id, name").order("name", { ascending: true }),
+    supabase.from("portal_bookings").select("service_name").not("service_name", "is", null),
   ]);
 
-  for (const result of [todayBookings, yesterdayBookings, pendingBookings, completedBookings, scheduleResult, trendResult, activitiesResult]) {
+  for (const result of [monthBookings, previousMonthBookings, pendingBookings, completedBookings, scheduleResult, trendResult, activitiesResult, clientsResult, dogsResult, servicesResult]) {
     if (result.error) throw result.error;
   }
 
-  const todayCount = todayBookings.count ?? 0;
-  const yesterdayCount = yesterdayBookings.count ?? 0;
+  const monthCount = monthBookings.count ?? 0;
+  const previousMonthCount = previousMonthBookings.count ?? 0;
   const trendBookings = (trendResult.data ?? []) as PortalBooking[];
 
   return {
     stats: [
-      makeStat("Today's Bookings", todayCount, getPercentChange(todayCount, yesterdayCount), true, "calendar-outline", "#5B3DF5", "#F3EEFF"),
+      makeStat("This Month", monthCount, getPercentChange(monthCount, previousMonthCount), true, "calendar-outline", "#5B3DF5", "#F3EEFF"),
       makeStat("Pending", pendingBookings.count ?? 0, "Live", false, "time-outline", "#F97316", "#FFF5EB"),
       makeStat("Completed", completedBookings.count ?? 0, "Live", true, "checkmark-circle-outline", "#16A34A", "#ECFDF3"),
       makeStat("Total Earnings", "€0", "Invoices later", true, "cash-outline", "#5B3DF5", "#F3EEFF"),
     ],
     schedule: ((scheduleResult.data ?? []) as PortalBooking[]).map(mapScheduleItem),
     bookingTrend: buildTrend(trendBookings, () => 1),
-    revenueTrend: Array.from({ length: trendDays }, () => 0),
+    revenueTrend: Array.from({ length: trendMonths }, () => 0),
     activities: ((activitiesResult.data ?? []) as PortalActivity[]).map(mapActivity),
-    notificationCount: (pendingBookings.count ?? 0) + todayCount,
+    notificationCount: (pendingBookings.count ?? 0) + monthCount,
+    monthLabel: new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(monthStart),
+    formOptions: buildFormOptions((clientsResult.data ?? []) as PortalClientOption[], (dogsResult.data ?? []) as PortalDogOption[], servicesResult.data ?? []),
   };
 }
 
@@ -180,28 +236,121 @@ async function createDogRecord(supabase: ReturnType<typeof createClient>, input:
   if (error) throw error;
 }
 
-async function createBookingRecord(supabase: ReturnType<typeof createClient>, input: { clientId: string; dogId: string; serviceName: string; startsAt: string; location?: string; notes?: string }) {
+async function createBookingRecord(supabase: ReturnType<typeof createClient>, input: { clientId: string; dogId?: string; dogIds?: string[]; serviceName: string; startsAt: string; location?: string; notes?: string }) {
   const startsAt = new Date(required(input.startsAt, "Start time"));
   if (Number.isNaN(startsAt.getTime())) throw new Error("Enter a valid start time.");
 
   const endsAt = new Date(startsAt);
   endsAt.setHours(endsAt.getHours() + 1);
 
+  const clientId = required(input.clientId, "Client");
+  const dogIds = normalizeDogIds(input);
+  const location = input.location?.trim() || (await fetchClientAddress(supabase, clientId));
+
   const { error } = await supabase.from("portal_bookings").insert({
-    client_id: required(input.clientId, "Client ID"),
-    dog_id: required(input.dogId, "Dog ID"),
-    dog_ids: [input.dogId],
+    client_id: clientId,
+    dog_id: dogIds[0],
+    dog_ids: dogIds,
     service_name: required(input.serviceName, "Service"),
     starts_at: startsAt.toISOString(),
     ends_at: endsAt.toISOString(),
     timezone: "Europe/Dublin",
-    location: input.location?.trim() || null,
+    location,
     notes: input.notes?.trim() || null,
     status: "pending",
     source: "manual",
     sync_status: "pending",
   });
   if (error) throw error;
+}
+
+async function updateBookingRecord(supabase: ReturnType<typeof createClient>, input: { bookingId: string; clientId?: string; dogId?: string; dogIds?: string[]; serviceName?: string; startsAt?: string; location?: string; notes?: string; status?: string }) {
+  const update: Record<string, unknown> = {};
+  if (input.clientId) update.client_id = input.clientId.trim();
+  if (input.dogId || input.dogIds?.length) {
+    const dogIds = normalizeDogIds(input);
+    update.dog_id = dogIds[0];
+    update.dog_ids = dogIds;
+  }
+  if (input.serviceName?.trim()) update.service_name = input.serviceName.trim();
+  if (input.startsAt?.trim()) {
+    const startsAt = parseDate(input.startsAt, "start time");
+    const endsAt = new Date(startsAt);
+    endsAt.setHours(endsAt.getHours() + 1);
+    update.starts_at = startsAt.toISOString();
+    update.ends_at = endsAt.toISOString();
+  }
+  if (input.location !== undefined) update.location = input.location.trim() || null;
+  if (input.notes !== undefined) update.notes = input.notes.trim() || null;
+  if (input.status?.trim()) update.status = normalizeBookingStatus(input.status);
+  if (!Object.keys(update).length) return;
+
+  const { error } = await supabase.from("portal_bookings").update(update).eq("id", required(input.bookingId, "Booking ID"));
+  if (error) throw error;
+}
+
+async function setBookingStatus(supabase: ReturnType<typeof createClient>, bookingId: string, status: string) {
+  const { error } = await supabase.from("portal_bookings").update({ status, cancelled_at: status === "cancelled" ? new Date().toISOString() : null }).eq("id", required(bookingId, "Booking ID"));
+  if (error) throw error;
+}
+
+async function rescheduleBooking(supabase: ReturnType<typeof createClient>, input: { bookingId: string; startsAt: string }) {
+  await updateBookingRecord(supabase, { bookingId: input.bookingId, startsAt: input.startsAt, status: "reschedule_requested" });
+}
+
+async function setDogStatus(supabase: ReturnType<typeof createClient>, input: { dogId: string; active: boolean }) {
+  const { error } = await supabase.from("portal_dogs").update({ status: input.active ? "Active" : "Inactive" }).eq("id", required(input.dogId, "Dog ID"));
+  if (error) throw error;
+}
+
+async function setClientStatus(supabase: ReturnType<typeof createClient>, input: { clientId: string; active: boolean }) {
+  const { error } = await supabase.from("portal_clients").update({ status: input.active ? "active" : "inactive" }).eq("id", required(input.clientId, "Client ID"));
+  if (error) throw error;
+}
+
+async function fetchClientAddress(supabase: ReturnType<typeof createClient>, clientId: string) {
+  const { data, error } = await supabase.from("portal_clients").select("address").eq("id", clientId).maybeSingle<{ address: string | null }>();
+  if (error) throw error;
+  return data?.address?.trim() || null;
+}
+
+function buildFormOptions(clients: PortalClientOption[], dogs: PortalDogOption[], serviceRows: { service_name?: string | null }[]) {
+  const dogsByClient = dogs.reduce<Record<string, PortalDogOption[]>>((groups, dog) => {
+    groups[dog.client_id] = [...(groups[dog.client_id] || []), dog];
+    return groups;
+  }, {});
+
+  return {
+    clients: clients.map((client) => ({ id: client.id, name: client.full_name, address: client.address || "" })),
+    dogsByClient: Object.fromEntries(
+      Object.entries(dogsByClient).map(([clientId, clientDogs]) => [
+        clientId,
+        [
+          ...clientDogs.map((dog) => ({ id: dog.id, ids: [dog.id], name: dog.name })),
+          ...(clientDogs.length > 1 ? [{ id: "all", ids: clientDogs.map((dog) => dog.id), name: "All dogs" }] : []),
+        ],
+      ]),
+    ),
+    services: Array.from(new Set([...defaultServices, ...serviceRows.map((row) => row.service_name?.trim()).filter(Boolean) as string[]])).sort((a, b) => a.localeCompare(b)),
+  };
+}
+
+function normalizeDogIds(input: { dogId?: string; dogIds?: string[] }) {
+  const dogIds = (input.dogIds?.length ? input.dogIds : input.dogId ? [input.dogId] : []).map((dogId) => dogId.trim()).filter(Boolean);
+  if (!dogIds.length) throw new Error("Dog is required.");
+  return Array.from(new Set(dogIds));
+}
+
+function parseDate(value: string, label: string) {
+  const date = new Date(required(value, label));
+  if (Number.isNaN(date.getTime())) throw new Error(`Enter a valid ${label}.`);
+  return date;
+}
+
+function normalizeBookingStatus(status: string) {
+  const normalized = status.trim().toLowerCase().replace(/\s+/g, "_");
+  if (!["pending", "confirmed", "cancelled", "reschedule_requested", "completed"].includes(normalized)) throw new Error("Unsupported booking status.");
+  return normalized;
 }
 
 function makeStat(title: string, value: number | string, change: string, positive: boolean, icon: string, iconColor: string, iconBackground: string) {
@@ -236,10 +385,10 @@ function activityStyle(type: string) {
 }
 
 function buildTrend(bookings: PortalBooking[], valueForBooking: (booking: PortalBooking) => number) {
-  const today = startOfDay(new Date());
-  return Array.from({ length: trendDays }, (_, index) => {
-    const day = addDays(today, index - (trendDays - 1));
-    return bookings.filter((booking) => booking.starts_at && startOfDay(new Date(booking.starts_at)).getTime() === day.getTime()).reduce((sum, booking) => sum + valueForBooking(booking), 0);
+  const thisMonth = startOfMonth(new Date());
+  return Array.from({ length: trendMonths }, (_, index) => {
+    const month = addMonths(thisMonth, index - (trendMonths - 1));
+    return bookings.filter((booking) => booking.starts_at && startOfMonth(new Date(booking.starts_at)).getTime() === month.getTime()).reduce((sum, booking) => sum + valueForBooking(booking), 0);
   });
 }
 
@@ -256,6 +405,16 @@ function startOfDay(date: Date) {
 function addDays(date: Date, days: number) {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
+  return next;
+}
+
+function startOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function addMonths(date: Date, months: number) {
+  const next = new Date(date);
+  next.setMonth(next.getMonth() + months);
   return next;
 }
 

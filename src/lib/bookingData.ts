@@ -71,7 +71,7 @@ export async function fetchAdminBookingsData(): Promise<BookingsData> {
     throw error;
   }
 
-  const bookings = data.map(mapBookingRow);
+  const bookings = data.map(mapBookingRow).sort(sortBookingsForAdmin);
 
   return {
     stats: buildBookingStats(bookings),
@@ -120,6 +120,12 @@ export async function fetchClientBookingsData(): Promise<BookingsData> {
     stats: buildBookingStats(bookings),
     bookings,
   };
+}
+
+function sortBookingsForAdmin(a: Booking, b: Booking) {
+  if (a.status === "Pending" && b.status !== "Pending") return -1;
+  if (a.status !== "Pending" && b.status === "Pending") return 1;
+  return a.scheduleDay.localeCompare(b.scheduleDay) || a.time.localeCompare(b.time);
 }
 
 function mapBookingRow(row: PortalBookingRow): Booking {

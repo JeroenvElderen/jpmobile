@@ -36,19 +36,19 @@ type PortalClientRow = {
   created_at: string | null;
   avatar_url: string | null;
   status: string | null;
-  portal_dogs?: { name: string | null; breed: string | null }[] | null;
+  portal_dogs?: { name: string | null; breed: string | null; profile_photo_url: string | null }[] | null;
 };
 
 type PortalBookingClientRow = {
   client_id: string | null;
 };
 
-const fallbackClientImage = "https://i.pravatar.cc/220?u=client";
+const fallbackClientImage = "https://placehold.co/220x220/F3EEFF/5B3DF5.png?text=JP";
 
 export async function fetchAdminClientsData(): Promise<ClientsData> {
   const { data: clients, error: clientsError } = await supabase
     .from("portal_clients")
-    .select("id, full_name, email, created_at, avatar_url, status, portal_dogs(name, breed)")
+    .select("id, full_name, email, created_at, avatar_url, status, portal_dogs(name, breed, profile_photo_url)")
     .order("full_name", { ascending: true })
     .returns<PortalClientRow[]>();
 
@@ -93,8 +93,12 @@ function mapClientRow(row: PortalClientRow, bookingCounts: Record<string, number
     bookings: bookingCounts[row.id] || 0,
     memberSince: formatMemberSince(row.created_at),
     status: normalizeClientStatus(row.status),
-    avatar: row.avatar_url || `${fallbackClientImage}-${row.id}`,
+    avatar: row.avatar_url || firstDogPhoto(row.portal_dogs) || fallbackClientImage,
   };
+}
+
+function firstDogPhoto(dogs?: PortalClientRow["portal_dogs"]) {
+  return dogs?.find((dog) => dog.profile_photo_url?.trim())?.profile_photo_url || null;
 }
 
 function formatDogs(dogs?: PortalClientRow["portal_dogs"]) {
