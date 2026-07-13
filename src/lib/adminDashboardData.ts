@@ -87,6 +87,10 @@ export async function cancelAdminBooking(bookingId: string) {
   await invokeAdminDashboard({ type: "cancel-booking", payload: { bookingId } });
 }
 
+export async function rejectAdminBooking(bookingId: string) {
+  await invokeAdminDashboard({ type: "reject-booking", payload: { bookingId } });
+}
+
 export async function confirmAdminBooking(bookingId: string) {
   await invokeAdminDashboard({ type: "confirm-booking", payload: { bookingId } });
 }

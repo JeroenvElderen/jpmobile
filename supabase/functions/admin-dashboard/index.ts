@@ -21,6 +21,7 @@ type AdminAction =
   | { type: "create-booking"; payload: { clientId: string; dogId?: string; dogIds?: string[]; serviceName: string; startsAt: string; location?: string; notes?: string } }
   | { type: "update-booking"; payload: { bookingId: string; clientId?: string; dogId?: string; dogIds?: string[]; serviceName?: string; startsAt?: string; location?: string; notes?: string; status?: string } }
   | { type: "cancel-booking"; payload: { bookingId: string } }
+  | { type: "reject-booking"; payload: { bookingId: string } }
   | { type: "confirm-booking"; payload: { bookingId: string } }
   | { type: "reschedule-booking"; payload: { bookingId: string; startsAt: string } }
   | { type: "set-dog-status"; payload: { dogId: string; active: boolean } }
@@ -139,6 +140,11 @@ Deno.serve(async (req) => {
 
     if (action.type === "cancel-booking") {
       await setBookingStatus(adminClient, action.payload.bookingId, "cancelled");
+      return json({ data: await fetchDashboard(adminClient) });
+    }
+
+    if (action.type === "reject-booking") {
+      await deleteBookingRecord(adminClient, action.payload.bookingId);
       return json({ data: await fetchDashboard(adminClient) });
     }
 
@@ -347,8 +353,19 @@ async function updateBookingRecord(supabase: ReturnType<typeof createClient>, in
   if (error) throw error;
 }
 
+async function deleteBookingRecord(supabase: ReturnType<typeof createClient>, bookingId: string) {
+  const { error } = await supabase.from("portal_bookings").delete().eq("id", required(bookingId, "Booking ID"));
+  if (error) throw error;
+}
+
 async function setBookingStatus(supabase: ReturnType<typeof createClient>, bookingId: string, status: string) {
-  const { error } = await supabase.from("portal_bookings").update({ status, cancelled_at: status === "cancelled" ? new Date().toISOString() : null }).eq("id", required(bookingId, "Booking ID"));
+  const update: Record<string, string | null> = {
+    status,
+    cancelled_at: status === "cancelled" ? new Date().toISOString() : null,
+  };
+  if (status === "confirmed") update.sync_status = "pending";
+
+  const { error } = await supabase.from("portal_bookings").update(update).eq("id", required(bookingId, "Booking ID"));
   if (error) throw error;
 }
 

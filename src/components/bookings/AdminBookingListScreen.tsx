@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
-import { Image, Modal, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, Image, Modal, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import { Booking, BookingStat, BookingStatus } from "@/lib/bookingData";
+import { cancelAdminBooking, confirmAdminBooking, rejectAdminBooking, updateAdminBooking } from "@/lib/adminDashboardData";
 
 const statusStyles: Record<BookingStatus, { bg: string; color: string; icon: keyof typeof Ionicons.glyphMap }> = {
   Confirmed: { bg: "#EAF8EF", color: "#178A3B", icon: "checkmark-circle-outline" },
@@ -17,14 +18,102 @@ const actionItems = [
   { label: "Cancel", icon: "ban-outline", color: "#F97316" },
 ] as const;
 
+type BookingAction = (typeof actionItems)[number]["label"];
+
 type AdminBookingListScreenProps = {
   bookings: Booking[];
   stats: BookingStat[];
+  onBookingChanged?: () => void;
 };
 
-export default function AdminBookingListScreen({ bookings, stats }: AdminBookingListScreenProps) {
+export default function AdminBookingListScreen({ bookings, stats, onBookingChanged }: AdminBookingListScreenProps) {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
+  const [editService, setEditService] = useState("");
+  const [editStartsAt, setEditStartsAt] = useState("");
+  const [editLocation, setEditLocation] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [busyAction, setBusyAction] = useState<BookingAction | "Save" | null>(null);
   const visibleBookings = useMemo(() => bookings.slice(0, 8), [bookings]);
+
+  const closeSheets = () => {
+    setSelectedBooking(null);
+    setEditingBooking(null);
+    setBusyAction(null);
+  };
+
+  const refreshAfterChange = () => {
+    closeSheets();
+    onBookingChanged?.();
+  };
+
+  const openEdit = (booking: Booking) => {
+    setSelectedBooking(null);
+    setEditingBooking(booking);
+    setEditService(booking.service);
+    setEditStartsAt(toDateTimeLocalValue(booking.startsAtIso));
+    setEditLocation(booking.breed === "Location TBC" ? "" : booking.breed);
+    setEditNotes(booking.serviceDetail);
+  };
+
+  const handleAction = async (action: BookingAction) => {
+    if (!selectedBooking || busyAction) return;
+
+    if (action === "Edit") {
+      openEdit(selectedBooking);
+      return;
+    }
+
+    const confirmationCopy: Record<Exclude<BookingAction, "Edit">, string> = {
+      Approve: "Approve this booking and mark it ready for Outlook calendar sync?",
+      Reject: "Reject this booking and remove it from Supabase?",
+      Cancel: "Cancel this booking? It will stay in Supabase as cancelled.",
+    };
+
+    Alert.alert(action, confirmationCopy[action], [
+      { text: "No", style: "cancel" },
+      {
+        text: action,
+        style: action === "Approve" ? "default" : "destructive",
+        onPress: async () => {
+          setBusyAction(action);
+          try {
+            if (action === "Approve") await confirmAdminBooking(selectedBooking.rawId);
+            if (action === "Reject") await rejectAdminBooking(selectedBooking.rawId);
+            if (action === "Cancel") await cancelAdminBooking(selectedBooking.rawId);
+            refreshAfterChange();
+          } catch (actionError) {
+            setBusyAction(null);
+            Alert.alert(`${action} failed`, actionError instanceof Error ? actionError.message : "Unable to update booking.");
+          }
+        },
+      },
+    ]);
+  };
+
+  const saveEdit = async () => {
+    if (!editingBooking || busyAction) return;
+    const startsAt = editStartsAt.trim() ? new Date(editStartsAt.trim()) : null;
+    if (editStartsAt.trim() && (!startsAt || Number.isNaN(startsAt.getTime()))) {
+      Alert.alert("Invalid date", "Enter a valid date and time before saving.");
+      return;
+    }
+
+    setBusyAction("Save");
+    try {
+      await updateAdminBooking({
+        bookingId: editingBooking.rawId,
+        serviceName: editService,
+        startsAt: startsAt ? startsAt.toISOString() : undefined,
+        location: editLocation,
+        notes: editNotes,
+      });
+      refreshAfterChange();
+    } catch (editError) {
+      setBusyAction(null);
+      Alert.alert("Edit failed", editError instanceof Error ? editError.message : "Unable to edit booking.");
+    }
+  };
 
   return (
     <View style={styles.wrapper}>
@@ -113,16 +202,41 @@ export default function AdminBookingListScreen({ bookings, stats }: AdminBooking
             <Text style={styles.sheetTitle}>{selectedBooking?.dog}</Text>
             <Text style={styles.sheetSubtitle}>{selectedBooking?.service} · {selectedBooking?.scheduleDay} at {selectedBooking?.time}</Text>
             {actionItems.map((action) => (
-              <TouchableOpacity key={action.label} style={styles.actionRow} activeOpacity={0.86}>
+              <TouchableOpacity key={action.label} style={styles.actionRow} activeOpacity={0.86} disabled={Boolean(busyAction)} onPress={() => handleAction(action.label)}>
                 <Ionicons name={action.icon} size={22} color={action.color} />
-                <Text style={[styles.actionText, { color: action.color }]}>{action.label}</Text>
+                <Text style={[styles.actionText, { color: action.color }]}>{busyAction === action.label ? `${action.label}...` : action.label}</Text>
               </TouchableOpacity>
             ))}
           </Pressable>
         </Pressable>
       </Modal>
+
+      <Modal transparent animationType="fade" visible={Boolean(editingBooking)} onRequestClose={() => setEditingBooking(null)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setEditingBooking(null)}>
+          <Pressable style={styles.actionSheet}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Edit booking</Text>
+            <Text style={styles.sheetSubtitle}>{editingBooking?.dog} · {editingBooking?.client}</Text>
+            <TextInput style={styles.editInput} value={editService} onChangeText={setEditService} placeholder="Service" placeholderTextColor="#8D93AA" />
+            <TextInput style={styles.editInput} value={editStartsAt} onChangeText={setEditStartsAt} placeholder="YYYY-MM-DDTHH:mm" placeholderTextColor="#8D93AA" autoCapitalize="none" />
+            <TextInput style={styles.editInput} value={editLocation} onChangeText={setEditLocation} placeholder="Location" placeholderTextColor="#8D93AA" />
+            <TextInput style={[styles.editInput, styles.notesInput]} value={editNotes} onChangeText={setEditNotes} placeholder="Notes" placeholderTextColor="#8D93AA" multiline />
+            <TouchableOpacity style={styles.saveButton} activeOpacity={0.86} disabled={Boolean(busyAction)} onPress={saveEdit}>
+              <Text style={styles.saveButtonText}>{busyAction === "Save" ? "Saving..." : "Save changes"}</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
+}
+
+function toDateTimeLocalValue(value?: string) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (part: number) => String(part).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 const styles = StyleSheet.create({
@@ -173,4 +287,8 @@ const styles = StyleSheet.create({
   sheetSubtitle: { color: "#59617F", fontSize: 13, fontWeight: "600", marginBottom: 16, marginTop: 6, textAlign: "center" },
   actionRow: { alignItems: "center", borderTopColor: "#F0F1F7", borderTopWidth: 1, flexDirection: "row", gap: 14, paddingVertical: 16 },
   actionText: { fontSize: 16, fontWeight: "900" },
+  editInput: { backgroundColor: "#F8F9FD", borderColor: "#E5E7F1", borderRadius: 12, borderWidth: 1, color: "#11162B", fontSize: 14, fontWeight: "700", marginBottom: 10, paddingHorizontal: 14, paddingVertical: 12 },
+  notesInput: { minHeight: 86, textAlignVertical: "top" },
+  saveButton: { alignItems: "center", backgroundColor: "#4B22C8", borderRadius: 14, paddingVertical: 15 },
+  saveButtonText: { color: "#FFF", fontSize: 15, fontWeight: "900" },
 });
