@@ -13,6 +13,8 @@ const corsHeaders = {
 type AdminAction =
   | { type: "fetch" }
   | { type: "create-client"; payload: { fullName: string; email: string; phone?: string } }
+  | { type: "update-client"; payload: { clientId: string; fullName: string; email: string } }
+  | { type: "delete-client"; payload: { clientId: string } }
   | { type: "create-dog"; payload: { clientId: string; name: string; breed?: string; age?: string; notes?: string } }
   | { type: "update-dog"; payload: { dogId: string; breed?: string; age?: string; notes?: string } }
   | { type: "delete-dog"; payload: { dogId: string } }
@@ -97,6 +99,16 @@ Deno.serve(async (req) => {
 
     if (action.type === "create-client") {
       await createClientRecord(adminClient, action.payload);
+      return json({ data: await fetchDashboard(adminClient) });
+    }
+
+    if (action.type === "update-client") {
+      await updateClientRecord(adminClient, action.payload);
+      return json({ data: await fetchDashboard(adminClient) });
+    }
+
+    if (action.type === "delete-client") {
+      await deleteClientRecord(adminClient, action.payload.clientId);
       return json({ data: await fetchDashboard(adminClient) });
     }
 
@@ -233,6 +245,25 @@ async function createClientRecord(supabase: ReturnType<typeof createClient>, inp
     phone: input.phone?.trim() || null,
     status: "active",
   });
+  if (error) throw error;
+}
+
+async function updateClientRecord(supabase: ReturnType<typeof createClient>, input: { clientId: string; fullName: string; email: string }) {
+  const fullName = required(input.fullName, "Client name");
+  const [firstName] = fullName.split(/\s+/);
+  const { error } = await supabase
+    .from("portal_clients")
+    .update({
+      full_name: fullName,
+      first_name: firstName,
+      email: required(input.email, "Client email"),
+    })
+    .eq("id", required(input.clientId, "Client ID"));
+  if (error) throw error;
+}
+
+async function deleteClientRecord(supabase: ReturnType<typeof createClient>, clientId: string) {
+  const { error } = await supabase.from("portal_clients").delete().eq("id", required(clientId, "Client ID"));
   if (error) throw error;
 }
 

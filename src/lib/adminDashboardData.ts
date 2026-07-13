@@ -63,6 +63,14 @@ export async function createAdminClient(input: { fullName: string; email: string
   await invokeAdminDashboard({ type: "create-client", payload: input });
 }
 
+export async function updateAdminClient(input: { clientId: string; fullName: string; email: string }) {
+  await invokeAdminDashboard({ type: "update-client", payload: input });
+}
+
+export async function deleteAdminClient(clientId: string) {
+  await invokeAdminDashboard({ type: "delete-client", payload: { clientId } });
+}
+
 export async function createAdminDog(input: { clientId: string; name: string; breed?: string; age?: string; notes?: string }) {
   await invokeAdminDashboard({ type: "create-dog", payload: input });
 }

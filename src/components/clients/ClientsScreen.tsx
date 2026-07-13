@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import FloatingTabBar from "@/components/dashboard/FloatingTabBar";
+import { deleteAdminClient, setAdminClientStatus, updateAdminClient } from "@/lib/adminDashboardData";
 import { fetchAdminClientsData, type ClientsData } from "@/lib/clientsData";
 import { supabase } from "@/lib/supabase";
 import ClientFilters from "./ClientFilters";
@@ -64,13 +65,10 @@ export default function ClientsScreen() {
       return;
     }
 
-    const { error: updateError } = await supabase
-      .from("portal_clients")
-      .update({ full_name: trimmedName, email: trimmedEmail })
-      .eq("id", client.id);
-
-    if (updateError) {
-      Alert.alert("Unable to update client", updateError.message);
+    try {
+      await updateAdminClient({ clientId: client.id, fullName: trimmedName, email: trimmedEmail });
+    } catch (updateError) {
+      Alert.alert("Unable to update client", updateError instanceof Error ? updateError.message : "Admin client update failed.");
       return;
     }
 
@@ -81,13 +79,10 @@ export default function ClientsScreen() {
   };
 
   const handleToggleStatus = async (client: ClientsData["clients"][number], status: ClientsData["clients"][number]["status"]) => {
-    const { error: updateError } = await supabase
-      .from("portal_clients")
-      .update({ status: status.toLowerCase() })
-      .eq("id", client.id);
-
-    if (updateError) {
-      Alert.alert("Unable to update status", updateError.message);
+    try {
+      await setAdminClientStatus(client.id, status.toLowerCase() === "active");
+    } catch (updateError) {
+      Alert.alert("Unable to update status", updateError instanceof Error ? updateError.message : "Admin status update failed.");
       return;
     }
 
@@ -104,10 +99,10 @@ export default function ClientsScreen() {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
-          const { error: deleteError } = await supabase.from("portal_clients").delete().eq("id", client.id);
-
-          if (deleteError) {
-            Alert.alert("Unable to delete client", deleteError.message);
+          try {
+            await deleteAdminClient(client.id);
+          } catch (deleteError) {
+            Alert.alert("Unable to delete client", deleteError instanceof Error ? deleteError.message : "Admin client delete failed.");
             return;
           }
 
