@@ -6,7 +6,7 @@ import { theme } from '@/lib/theme';
 
 import { Typography } from './Typography';
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
 
 type ButtonProps = PressableProps & {
   children: ReactNode;
@@ -52,15 +52,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
   },
   primary: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.primaryDark,
   },
   secondary: {
-    backgroundColor: theme.colors.surfaceLight,
+    backgroundColor: theme.colors.surfaceTint,
     borderColor: theme.colors.border,
     borderWidth: 1,
   },
   ghost: {
     backgroundColor: 'transparent',
+  },
+  danger: {
+    backgroundColor: theme.colors.dangerLight,
+    borderColor: theme.colors.danger,
+    borderWidth: 1,
+  },
+  success: {
+    backgroundColor: theme.colors.successLight,
+    borderColor: theme.colors.success,
+    borderWidth: 1,
   },
   pressed: {
     opacity: 0.82,
@@ -72,6 +82,6 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
   },
   secondaryText: {
-    color: theme.colors.primaryLight,
+    color: theme.colors.primaryDark,
   },
 });

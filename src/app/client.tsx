@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import ClientDashboardHeader from "@/components/client-dashboard/ClientDashboardHeader";
 import ClientRecentActivityList from "@/components/client-dashboard/ClientRecentActivityList";
@@ -7,7 +8,7 @@ import ClientSectionCard from "@/components/client-dashboard/ClientSectionCard";
 import MyPetsList from "@/components/client-dashboard/MyPetsList";
 import UpcomingBookingsList from "@/components/client-dashboard/UpcomingBookingsList";
 import ClientFloatingTabBar from "@/components/client-dashboard/ClientFloatingTabBar";
-import { fetchClientDashboardData, type ClientDashboardData } from "@/lib/clientDashboardData";
+import { fetchClientDashboardData, type ClientBooking, type ClientDashboardData } from "@/lib/clientDashboardData";
 import { supabase } from "@/lib/supabase";
 
 export default function ClientScreen() {
@@ -140,6 +141,8 @@ export default function ClientScreen() {
           notificationCount={dashboardData.notificationCount}
         />
 
+        <NextBookingHero booking={dashboardData.bookings[0]} />
+
         <ClientSectionCard title="Upcoming bookings">
           <UpcomingBookingsList bookings={dashboardData.bookings} onBookingChanged={() => loadDashboard({ showLoading: false })} />
         </ClientSectionCard>
@@ -158,9 +161,49 @@ export default function ClientScreen() {
   );
 }
 
+function NextBookingHero({ booking }: { booking?: ClientBooking }) {
+  if (!booking) {
+    return (
+      <View style={styles.heroCard}>
+        <View style={styles.heroIcon}>
+          <Ionicons name="calendar-outline" size={26} color="#5B3DF5" />
+        </View>
+        <View style={styles.heroCopy}>
+          <Text style={styles.heroEyebrow}>Ready when you are</Text>
+          <Text style={styles.heroTitle}>No upcoming bookings yet.</Text>
+          <Text style={styles.heroMeta}>Tap the center action button to request your next visit.</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const pending = booking.status === "Pending";
+
+  return (
+    <View style={styles.heroCard}>
+      <Image source={{ uri: booking.avatar }} style={styles.heroAvatar} />
+      <View style={styles.heroCopy}>
+        <Text style={styles.heroEyebrow}>Next booking</Text>
+        <Text style={styles.heroTitle}>{booking.pet}</Text>
+        <View style={styles.heroMetaRow}>
+          <Ionicons name="calendar-outline" size={15} color="#5B668D" />
+          <Text style={styles.heroMeta}>{booking.date} at {booking.time}</Text>
+        </View>
+        <View style={styles.heroMetaRow}>
+          <Ionicons name="paw-outline" size={15} color="#5B668D" />
+          <Text style={styles.heroMeta}>{booking.service}</Text>
+        </View>
+      </View>
+      <View style={[styles.heroStatus, pending ? styles.heroPending : styles.heroConfirmed]}>
+        <Text style={[styles.heroStatusText, pending ? styles.heroPendingText : styles.heroConfirmedText]}>{booking.status}</Text>
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#F8F9FD",
+    backgroundColor: "#F7F4EF",
     flex: 1,
   },
   centered: {
@@ -169,9 +212,87 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   content: {
-    paddingBottom: 130,
+    paddingBottom: 142,
     paddingHorizontal: 22,
     paddingTop: 60,
+  },
+  heroAvatar: {
+    borderColor: "rgba(255,255,255,0.88)",
+    borderRadius: 34,
+    borderWidth: 3,
+    height: 68,
+    width: 68,
+  },
+  heroCard: {
+    alignItems: "center",
+    backgroundColor: "#FFF",
+    borderColor: "rgba(91,61,245,0.14)",
+    borderRadius: 26,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 14,
+    marginBottom: 22,
+    padding: 18,
+    shadowColor: "#1D1233",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 22,
+    elevation: 4,
+  },
+  heroConfirmed: {
+    backgroundColor: "#ECFDF3",
+  },
+  heroConfirmedText: {
+    color: "#168A31",
+  },
+  heroCopy: {
+    flex: 1,
+    gap: 5,
+  },
+  heroEyebrow: {
+    color: "#5B3DF5",
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+  },
+  heroIcon: {
+    alignItems: "center",
+    backgroundColor: "#F3EEFF",
+    borderRadius: 28,
+    height: 56,
+    justifyContent: "center",
+    width: 56,
+  },
+  heroMeta: {
+    color: "#5B668D",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  heroMetaRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 6,
+  },
+  heroPending: {
+    backgroundColor: "#FFF4EB",
+  },
+  heroPendingText: {
+    color: "#F97316",
+  },
+  heroStatus: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  heroStatusText: {
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  heroTitle: {
+    color: "#1D2238",
+    fontSize: 20,
+    fontWeight: "900",
   },
   errorMessage: {
     color: "#6E7191",

@@ -232,7 +232,7 @@ if (!response.ok || !upload) {
       <Pressable style={styles.backdrop} onPress={resetAndClose} />
       <View style={styles.sheet}>
         <View style={styles.sheetHeader}><View><Text style={styles.eyebrow}>{title}</Text><Text style={styles.sheetTitle}>{title}</Text></View><TouchableOpacity onPress={resetAndClose} style={styles.closeButton}><Ionicons name="close" size={25} color="#3B198F" /></TouchableOpacity></View>
-        {action === "choose" ? <View style={styles.form}><TouchableOpacity style={styles.choiceCard} onPress={() => onChoose("booking")}><Ionicons name="calendar-outline" size={26} color="#5B3DF5" /><View><Text style={styles.choiceTitle}>Create a booking</Text><Text style={styles.helpText}>Request care for one or more pets.</Text></View></TouchableOpacity><TouchableOpacity style={styles.choiceCard} onPress={() => onChoose("dog")}><Ionicons name="paw-outline" size={26} color="#5B3DF5" /><View><Text style={styles.choiceTitle}>Add a pet</Text><Text style={styles.helpText}>Create a new pet profile.</Text></View></TouchableOpacity></View> : isLoading ? <View style={styles.loadingState}><ActivityIndicator color="#5B3DF5" /><Text style={styles.mutedText}>Loading your details...</Text></View> : (
+        {action === "choose" ? <View style={styles.form}><TouchableOpacity style={styles.choiceCard} onPress={() => onChoose("booking")}><Ionicons name="calendar-outline" size={26} color="#5B3DF5" /><View style={styles.choiceCopy}><Text style={styles.choiceTitle}>Request booking</Text><Text style={styles.helpText}>Ask for care for one or more pets.</Text></View><Ionicons name="chevron-forward" size={20} color="#9CA3AF" /></TouchableOpacity><TouchableOpacity style={styles.choiceCard} onPress={() => onChoose("dog")}><Ionicons name="paw-outline" size={26} color="#5B3DF5" /><View style={styles.choiceCopy}><Text style={styles.choiceTitle}>Add a pet</Text><Text style={styles.helpText}>Create a new dog profile.</Text></View><Ionicons name="chevron-forward" size={20} color="#9CA3AF" /></TouchableOpacity><TouchableOpacity style={styles.choiceCard} onPress={() => onChoose("message")}><Ionicons name="logo-whatsapp" size={26} color="#16A34A" /><View style={styles.choiceCopy}><Text style={styles.choiceTitle}>Send message</Text><Text style={styles.helpText}>Open WhatsApp with your message.</Text></View><Ionicons name="chevron-forward" size={20} color="#9CA3AF" /></TouchableOpacity></View> : isLoading ? <View style={styles.loadingState}><ActivityIndicator color="#5B3DF5" /><Text style={styles.mutedText}>Loading your details...</Text></View> : (
           <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
             {action === "booking" ? <>
               <Text style={styles.label}>Who is this booking for?</Text>
@@ -384,6 +384,7 @@ const styles = StyleSheet.create({
   loadingState: { alignItems: "center", gap: 10, padding: 32 },
   form: { gap: 16, padding: 22, paddingBottom: 30 },
   choiceCard: { alignItems: "center", backgroundColor: "#FAF8FF", borderColor: "#E4DFEE", borderRadius: 18, borderWidth: 1, flexDirection: "row", gap: 14, padding: 18 },
+  choiceCopy: { flex: 1 },
   choiceTitle: { color: "#171326", fontSize: 17, fontWeight: "900" },
   field: { flex: 1, gap: 8 },
   label: { color: "#2E2A3D", fontWeight: "800" },

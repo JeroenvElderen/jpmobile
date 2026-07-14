@@ -20,5 +20,6 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.xl,
     borderWidth: 1,
     padding: theme.spacing.lg,
+    ...theme.shadows.card,
   },
 });

@@ -93,7 +93,7 @@ export default function AdminScreen() {
         <RecentActivity activities={dashboardData.activities} />
       </ScrollView>
 
-      <FloatingTabBar activeRoute="home" />
+      <FloatingTabBar activeRoute="home" onQuickAction={setActiveAction} />
       <QuickActionForms action={activeAction} options={dashboardData.formOptions} onClose={() => setActiveAction(null)} onSaved={() => loadDashboard({ showLoading: false })} />
     </View>
   );

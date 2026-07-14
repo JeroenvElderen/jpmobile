@@ -32,9 +32,9 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
   input: {
-    backgroundColor: theme.colors.surfaceLight,
+    backgroundColor: theme.colors.surface,
     borderColor: theme.colors.border,
-    borderRadius: theme.radius.md,
+    borderRadius: theme.radius.lg,
     borderWidth: 1,
     color: theme.colors.text,
     fontSize: 16,
@@ -44,5 +44,6 @@ const styles = StyleSheet.create({
   },
   inputError: {
     borderColor: theme.colors.danger,
+    backgroundColor: theme.colors.dangerLight,
   },
 });
