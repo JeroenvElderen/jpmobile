@@ -10,7 +10,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
 
 type RouteKey = "home" | "bookings" | "pets" | "activity" | "profile" | "galleries";
-type QuickAction = "booking" | "dog" | "message" | null;
+type QuickAction = "booking" | "dog" | "message" | "choose" | null;
 type DogOption = { id: string; name: string };
 type BookingSlot = { id: string; date: string; startTime: string };
 type DogAvatarFile = { uri: string; name: string; type: string };
@@ -41,12 +41,12 @@ export default function ClientFloatingTabBar({ activeRoute = "home" }: Props) {
 
   return (
     <SafeAreaView pointerEvents="box-none" style={styles.safeArea}>
-      <ClientQuickActionModal action={quickAction} onClose={() => setQuickAction(null)} />
+      <ClientQuickActionModal action={quickAction} onClose={() => setQuickAction(null)} onChoose={setQuickAction} />
       <View style={styles.container}>
         <TabButton icon="home-outline" active={activeRoute === "home"} onPress={() => navigate("/client")} />
         <TabButton icon="calendar-outline" active={activeRoute === "bookings"} onPress={() => navigate("/client/bookings")} />
 
-        <TouchableOpacity style={styles.fab} activeOpacity={0.9} onPress={() => setQuickAction("booking")}>
+        <TouchableOpacity style={styles.fab} activeOpacity={0.9} onPress={() => setQuickAction("choose")}>
           <Ionicons name="add" size={34} color="#FFF" />
         </TouchableOpacity>
 
@@ -55,8 +55,6 @@ export default function ClientFloatingTabBar({ activeRoute = "home" }: Props) {
         <View style={styles.moreGroup}>
           {isMoreOpen && (
             <View style={styles.moreMenu}>
-              <MoreButton icon="add-circle-outline" label="Request booking" active={quickAction === "booking"} onPress={() => { setIsMoreOpen(false); setQuickAction("booking"); }} />
-              <MoreButton icon="paw-outline" label="Add dog" active={quickAction === "dog"} onPress={() => { setIsMoreOpen(false); setQuickAction("dog"); }} />
               <MoreButton icon="logo-whatsapp" label="Send message" active={quickAction === "message"} onPress={() => { setIsMoreOpen(false); setQuickAction("message"); }} />
               <View style={styles.moreDivider} />
               <MoreButton icon="images-outline" label="Galleries" active={activeRoute === "galleries"} onPress={() => navigate("/client/galleries")} />
@@ -70,7 +68,7 @@ export default function ClientFloatingTabBar({ activeRoute = "home" }: Props) {
   );
 }
 
-function ClientQuickActionModal({ action, onClose }: { action: QuickAction; onClose: () => void }) {
+function ClientQuickActionModal({ action, onClose, onChoose }: { action: QuickAction; onClose: () => void; onChoose: (action: QuickAction) => void }) {
   const [clientName, setClientName] = useState("there");
   const [clientId, setClientId] = useState<string | null>(null);
   const [dogs, setDogs] = useState<DogOption[]>([]);
@@ -84,10 +82,10 @@ function ClientQuickActionModal({ action, onClose }: { action: QuickAction; onCl
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const title = action === "booking" ? "Request Booking" : action === "dog" ? "Add dog" : "Send message";
+  const title = action === "booking" ? "Request Booking" : action === "dog" ? "Add dog" : action === "choose" ? "Create" : "Send message";
 
   useEffect(() => {
-    if (!action) return;
+    if (!action || action === "choose") return;
     let cancelled = false;
     setIsLoading(true);
     supabase.auth.getUser().then(async ({ data, error }) => {
@@ -234,7 +232,7 @@ if (!response.ok || !upload) {
       <Pressable style={styles.backdrop} onPress={resetAndClose} />
       <View style={styles.sheet}>
         <View style={styles.sheetHeader}><View><Text style={styles.eyebrow}>{title}</Text><Text style={styles.sheetTitle}>{title}</Text></View><TouchableOpacity onPress={resetAndClose} style={styles.closeButton}><Ionicons name="close" size={25} color="#3B198F" /></TouchableOpacity></View>
-        {isLoading ? <View style={styles.loadingState}><ActivityIndicator color="#5B3DF5" /><Text style={styles.mutedText}>Loading your details...</Text></View> : (
+        {action === "choose" ? <View style={styles.form}><TouchableOpacity style={styles.choiceCard} onPress={() => onChoose("booking")}><Ionicons name="calendar-outline" size={26} color="#5B3DF5" /><View><Text style={styles.choiceTitle}>Create a booking</Text><Text style={styles.helpText}>Request care for one or more pets.</Text></View></TouchableOpacity><TouchableOpacity style={styles.choiceCard} onPress={() => onChoose("dog")}><Ionicons name="paw-outline" size={26} color="#5B3DF5" /><View><Text style={styles.choiceTitle}>Add a pet</Text><Text style={styles.helpText}>Create a new pet profile.</Text></View></TouchableOpacity></View> : isLoading ? <View style={styles.loadingState}><ActivityIndicator color="#5B3DF5" /><Text style={styles.mutedText}>Loading your details...</Text></View> : (
           <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
             {action === "booking" ? <>
               <Text style={styles.label}>Who is this booking for?</Text>
@@ -250,7 +248,7 @@ if (!response.ok || !upload) {
             {action === "message" ? <Field label="Message" placeholder="Type your WhatsApp message..." value={message} onChangeText={setMessage} multiline /> : null}
           </ScrollView>
         )}
-        <View style={styles.footer}><TouchableOpacity style={styles.cancelButton} onPress={resetAndClose}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity><TouchableOpacity style={styles.submitButton} onPress={submit} disabled={isSubmitting || isLoading}>{isSubmitting ? <ActivityIndicator color="#FFF" /> : <Text style={styles.submitText}>{action === "booking" ? `Request ${slots.length} booking${slots.length === 1 ? "" : "s"}` : action === "message" ? "Send to WhatsApp" : "Save dog"} <Ionicons name="paper-plane-outline" size={15} /></Text>}</TouchableOpacity></View>
+        {action === "choose" ? null : <View style={styles.footer}><TouchableOpacity style={styles.cancelButton} onPress={resetAndClose}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity><TouchableOpacity style={styles.submitButton} onPress={submit} disabled={isSubmitting || isLoading}>{isSubmitting ? <ActivityIndicator color="#FFF" /> : <Text style={styles.submitText}>{action === "booking" ? `Request ${slots.length} booking${slots.length === 1 ? "" : "s"}` : action === "message" ? "Send to WhatsApp" : "Save dog"} <Ionicons name="paper-plane-outline" size={15} /></Text>}</TouchableOpacity></View>}
       </View>
     </Modal>
   );
@@ -385,6 +383,8 @@ const styles = StyleSheet.create({
   closeButton: { alignItems: "center", height: 42, justifyContent: "center", width: 42 },
   loadingState: { alignItems: "center", gap: 10, padding: 32 },
   form: { gap: 16, padding: 22, paddingBottom: 30 },
+  choiceCard: { alignItems: "center", backgroundColor: "#FAF8FF", borderColor: "#E4DFEE", borderRadius: 18, borderWidth: 1, flexDirection: "row", gap: 14, padding: 18 },
+  choiceTitle: { color: "#171326", fontSize: 17, fontWeight: "900" },
   field: { flex: 1, gap: 8 },
   label: { color: "#2E2A3D", fontWeight: "800" },
   helpText: { color: "#6E7191", fontSize: 12, marginTop: 5 },

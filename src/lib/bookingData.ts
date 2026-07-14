@@ -82,6 +82,24 @@ export async function fetchAdminBookingsData(): Promise<BookingsData> {
   };
 }
 
+export async function cancelClientBooking(bookingId: string) {
+  const { error } = await supabase
+    .from("portal_bookings")
+    .update({ status: "cancelled", sync_status: "needs_review", needs_review: true })
+    .eq("id", bookingId);
+
+  if (error) throw error;
+}
+
+export async function rescheduleClientBooking({ bookingId, startsAt, endsAt }: { bookingId: string; startsAt: string; endsAt?: string }) {
+  const { error } = await supabase
+    .from("portal_bookings")
+    .update({ starts_at: startsAt, ends_at: endsAt ?? null, sync_status: "needs_review", needs_review: true, status: "needs_review" })
+    .eq("id", bookingId);
+
+  if (error) throw error;
+}
+
 export async function fetchClientBookingsData(): Promise<BookingsData> {
   const { data: userData, error: userError } = await supabase.auth.getUser();
 

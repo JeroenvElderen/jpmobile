@@ -66,7 +66,7 @@ export default function ClientBookingsScreen() {
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <BookingsHeader />
-        <ClientBookingListScreen bookings={bookingsData.bookings} />
+        <ClientBookingListScreen bookings={bookingsData.bookings} stats={bookingsData.stats} onBookingChanged={() => loadBookings({ showLoading: false })} />
       </ScrollView>
 
       <ClientFloatingTabBar activeRoute="bookings" />

@@ -141,11 +141,11 @@ export default function ClientScreen() {
         />
 
         <ClientSectionCard title="Upcoming bookings">
-          <UpcomingBookingsList bookings={dashboardData.bookings} />
+          <UpcomingBookingsList bookings={dashboardData.bookings} onBookingChanged={() => loadDashboard({ showLoading: false })} />
         </ClientSectionCard>
 
         <ClientSectionCard title="My pets">
-          <MyPetsList pets={dashboardData.pets} />
+          <MyPetsList pets={dashboardData.pets} clientId={dashboardData.clientId} onPetChanged={() => loadDashboard({ showLoading: false })} />
         </ClientSectionCard>
 
         <ClientSectionCard title="Recent activity">

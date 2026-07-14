@@ -1,148 +1,29 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useState } from "react";
+import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
-import type { Dog } from "@/lib/dogsData";
+import { deactivateClientDog, deleteClientDog, type Dog, updateClientDog } from "@/lib/dogsData";
 
-const statusStyles = {
-  Active: { bg: "#DDF6DC", color: "#178A22" },
-  Inactive: { bg: "#FFF0D8", color: "#F97316" },
-} as const;
+const statusStyles = { Active: { bg: "#DDF6DC", color: "#178A22" }, Inactive: { bg: "#FFF0D8", color: "#F97316" } } as const;
+type Props = { dogs: Dog[]; clientId: string; onDogChanged?: () => void };
 
-type Props = {
-  dogs: Dog[];
-};
+export default function ClientDogList({ dogs, clientId, onDogChanged }: Props) {
+  const [selectedDog, setSelectedDog] = useState<Dog | null>(null);
+  const [draft, setDraft] = useState({ name: "", breed: "", age: "", notes: "" });
+  const [isBusy, setIsBusy] = useState(false);
 
-export default function ClientDogList({ dogs }: Props) {
-  return (
-    <View style={styles.container}>
-      {dogs.map((dog) => (
-        <ClientDogCard key={dog.id} dog={dog} />
-      ))}
-    </View>
-  );
+  const openDog = (dog: Dog) => { setSelectedDog(dog); setDraft({ name: dog.name, breed: dog.breed === "Breed not set" ? "" : dog.breed, age: dog.age === "Age not set" ? "" : dog.age, notes: dog.notes }); };
+  const close = () => { if (!isBusy) setSelectedDog(null); };
+  const refresh = () => { setSelectedDog(null); onDogChanged?.(); };
+  const save = async () => { if (!selectedDog) return; if (!draft.name.trim()) { Alert.alert("Name required", "Please enter your pet's name."); return; } setIsBusy(true); try { await updateClientDog({ dogId: selectedDog.id, clientId, ...draft }); refresh(); } catch (error) { Alert.alert("Save failed", error instanceof Error ? error.message : "Unable to save this pet."); } finally { setIsBusy(false); } };
+  const runAction = (action: "deactivate" | "delete") => { if (!selectedDog) return; const isDelete = action === "delete"; Alert.alert(isDelete ? "Delete pet" : "Deactivate pet", isDelete ? `Permanently delete ${selectedDog.name}?` : `Deactivate ${selectedDog.name}?`, [{ text: "No", style: "cancel" }, { text: isDelete ? "Delete" : "Deactivate", style: isDelete ? "destructive" : "default", onPress: async () => { setIsBusy(true); try { if (isDelete) await deleteClientDog(selectedDog.id, clientId); else await deactivateClientDog(selectedDog.id, clientId); refresh(); } catch (error) { Alert.alert("Update failed", error instanceof Error ? error.message : "Unable to update this pet."); } finally { setIsBusy(false); } } }]); };
+
+  return <View style={styles.container}>{dogs.map((dog) => <ClientDogCard key={dog.id} dog={dog} onPress={() => openDog(dog)} />)}<Modal transparent animationType="slide" visible={Boolean(selectedDog)} onRequestClose={close}><Pressable style={styles.backdrop} onPress={close} /><View style={styles.sheet}><View style={styles.sheetHeader}><View><Text style={styles.eyebrow}>My pet</Text><Text style={styles.sheetTitle}>Edit {selectedDog?.name}</Text></View><TouchableOpacity onPress={close} style={styles.closeButton}><Ionicons name="close" size={25} color="#3B198F" /></TouchableOpacity></View><ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled"><Field label="Pet name" value={draft.name} onChangeText={(name) => setDraft((current) => ({ ...current, name }))} /><Field label="Breed" value={draft.breed} onChangeText={(breed) => setDraft((current) => ({ ...current, breed }))} /><Field label="Age" value={draft.age} onChangeText={(age) => setDraft((current) => ({ ...current, age }))} /><Field label="Care notes" value={draft.notes} onChangeText={(notes) => setDraft((current) => ({ ...current, notes }))} multiline /><TouchableOpacity style={styles.warningButton} onPress={() => runAction("deactivate")} disabled={isBusy}><Ionicons name="pause-circle-outline" size={19} color="#F97316" /><Text style={styles.warningText}>Deactivate pet</Text></TouchableOpacity><TouchableOpacity style={styles.deleteButton} onPress={() => runAction("delete")} disabled={isBusy}><Ionicons name="trash-outline" size={19} color="#E53935" /><Text style={styles.deleteText}>Delete pet permanently</Text></TouchableOpacity></ScrollView><View style={styles.footer}><TouchableOpacity style={styles.cancelButton} onPress={close}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity><TouchableOpacity style={styles.submitButton} onPress={save} disabled={isBusy}><Text style={styles.submitText}>{isBusy ? "Saving..." : "Save changes"}</Text></TouchableOpacity></View></View></Modal></View>;
 }
 
-function ClientDogCard({ dog }: { dog: Dog }) {
-  const badge = statusStyles[dog.status];
-
-  return (
-    <TouchableOpacity style={styles.card} activeOpacity={0.86}>
-      <View style={styles.clientRow}>
-        <Image source={{ uri: dog.avatar }} style={styles.avatar} />
-        <View style={styles.clientText}>
-          <Text style={styles.name}>{dog.name}</Text>
-          <Text style={styles.muted}>{dog.breed}</Text>
-          <View style={styles.ownerRow}>
-            <Ionicons name="paw-outline" size={18} color="#5B3DF5" />
-            <Text style={styles.owner}>{dog.owner}</Text>
-          </View>
-        </View>
-        <Ionicons name="ellipsis-vertical" size={21} color="#3A1399" />
-      </View>
-
-      <View style={styles.detailRow}>
-        <View style={[styles.statusBadge, { backgroundColor: badge.bg }]}>
-          <Text style={[styles.statusText, { color: badge.color }]}>
-            {dog.status}
-          </Text>
-        </View>
-        <View style={styles.metaColumn}>
-          <View style={styles.metaRow}>
-            <Ionicons name="calendar-outline" size={18} color="#5D6485" />
-            <Text style={styles.metaText}>{dog.bookings} Bookings</Text>
-          </View>
-          <View style={styles.metaRow}>
-            <Ionicons name="calendar-clear-outline" size={18} color="#5D6485" />
-            <Text style={styles.metaText}>{dog.age}</Text>
-          </View>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-}
+function ClientDogCard({ dog, onPress }: { dog: Dog; onPress: () => void }) { const badge = statusStyles[dog.status]; return <TouchableOpacity style={styles.card} activeOpacity={0.86} onPress={onPress}><View style={styles.clientRow}><Image source={{ uri: dog.avatar }} style={styles.avatar} /><View style={styles.clientText}><Text style={styles.name}>{dog.name}</Text><Text style={styles.muted}>{dog.breed}</Text><View style={styles.ownerRow}><Ionicons name="paw-outline" size={18} color="#5B3DF5" /><Text style={styles.owner}>{dog.owner}</Text></View></View><Ionicons name="ellipsis-vertical" size={21} color="#3A1399" /></View><View style={styles.detailRow}><View style={[styles.statusBadge, { backgroundColor: badge.bg }]}><Text style={[styles.statusText, { color: badge.color }]}>{dog.status}</Text></View><View style={styles.metaColumn}><View style={styles.metaRow}><Ionicons name="calendar-outline" size={18} color="#5D6485" /><Text style={styles.metaText}>{dog.bookings} Bookings</Text></View><View style={styles.metaRow}><Ionicons name="calendar-clear-outline" size={18} color="#5D6485" /><Text style={styles.metaText}>{dog.age}</Text></View></View></View></TouchableOpacity>; }
+function Field({ label, ...props }: { label: string } & React.ComponentProps<typeof TextInput>) { return <View style={styles.field}><Text style={styles.label}>{label}</Text><TextInput placeholderTextColor="#8F8EA0" style={[styles.input, props.multiline && styles.multiline]} {...props} /></View>; }
 
 const styles = StyleSheet.create({
-  container: {
-    marginBottom: 8,
-  },
-  card: {
-    backgroundColor: "#FFF",
-    borderColor: "#ECECF5",
-    borderRadius: 18,
-    borderWidth: 1,
-    marginBottom: 14,
-    padding: 18,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.04,
-    shadowRadius: 16,
-  },
-  clientRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    marginBottom: 18,
-  },
-  avatar: {
-    borderRadius: 30,
-    height: 60,
-    width: 60,
-  },
-  clientText: {
-    flex: 1,
-    marginLeft: 14,
-  },
-  name: {
-    color: "#11162B",
-    fontSize: 18,
-    fontWeight: "800",
-    marginBottom: 5,
-  },
-  muted: {
-    color: "#5D6485",
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  ownerRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 7,
-    marginTop: 5,
-  },
-  owner: {
-    color: "#4C5578",
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  detailRow: {
-    alignItems: "center",
-    borderTopColor: "#ECECF5",
-    borderTopWidth: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingTop: 16,
-  },
-  statusBadge: {
-    alignItems: "center",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  statusText: {
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  metaColumn: {
-    gap: 8,
-  },
-  metaRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 8,
-  },
-  metaText: {
-    color: "#5D6485",
-    fontSize: 13,
-    lineHeight: 20,
-  },
+  container: { marginBottom: 8 }, card: { backgroundColor: "#FFF", borderColor: "#ECECF5", borderRadius: 18, borderWidth: 1, marginBottom: 14, padding: 18, shadowColor: "#000", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.04, shadowRadius: 16 }, clientRow: { alignItems: "center", flexDirection: "row", marginBottom: 18 }, avatar: { borderRadius: 30, height: 60, width: 60 }, clientText: { flex: 1, marginLeft: 14 }, name: { color: "#11162B", fontSize: 18, fontWeight: "800", marginBottom: 5 }, muted: { color: "#5D6485", fontSize: 14, lineHeight: 20 }, ownerRow: { alignItems: "center", flexDirection: "row", gap: 7, marginTop: 5 }, owner: { color: "#4C5578", flex: 1, fontSize: 14, fontWeight: "600" }, detailRow: { alignItems: "center", borderTopColor: "#ECECF5", borderTopWidth: 1, flexDirection: "row", justifyContent: "space-between", paddingTop: 16 }, statusBadge: { alignItems: "center", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 }, statusText: { fontSize: 13, fontWeight: "700" }, metaColumn: { gap: 8 }, metaRow: { alignItems: "center", flexDirection: "row", gap: 8 }, metaText: { color: "#5D6485", fontSize: 13, lineHeight: 20 }, backdrop: { flex: 1, backgroundColor: "rgba(29, 34, 56, 0.42)" }, sheet: { backgroundColor: "#FFF", borderTopLeftRadius: 28, borderTopRightRadius: 28, bottom: 0, left: 0, maxHeight: "90%", position: "absolute", right: 0 }, sheetHeader: { alignItems: "center", borderBottomColor: "#ECECF5", borderBottomWidth: 1, flexDirection: "row", justifyContent: "space-between", padding: 22 }, eyebrow: { color: "#3B198F", fontSize: 12, fontWeight: "900", letterSpacing: 2, textTransform: "uppercase" }, sheetTitle: { color: "#1D2238", fontSize: 28, fontWeight: "700", marginTop: 6 }, closeButton: { alignItems: "center", height: 42, justifyContent: "center", width: 42 }, form: { gap: 16, padding: 22, paddingBottom: 30 }, field: { gap: 8 }, label: { color: "#2E2A3D", fontWeight: "800" }, input: { borderColor: "#DAD7E6", borderRadius: 13, borderWidth: 1, color: "#171326", fontSize: 15, paddingHorizontal: 16, paddingVertical: 13 }, multiline: { minHeight: 96, textAlignVertical: "top" }, warningButton: { alignItems: "center", borderColor: "#FED7AA", borderRadius: 13, borderWidth: 1, flexDirection: "row", gap: 10, padding: 14 }, warningText: { color: "#F97316", fontWeight: "900" }, deleteButton: { alignItems: "center", borderColor: "#FECACA", borderRadius: 13, borderWidth: 1, flexDirection: "row", gap: 10, padding: 14 }, deleteText: { color: "#E53935", fontWeight: "900" }, footer: { alignItems: "center", borderTopColor: "#ECECF5", borderTopWidth: 1, flexDirection: "row", gap: 12, justifyContent: "flex-end", padding: 18 }, cancelButton: { borderColor: "#B5A7DF", borderRadius: 4, borderWidth: 1, paddingHorizontal: 22, paddingVertical: 14 }, cancelText: { color: "#3B198F", fontSize: 12, fontWeight: "900", letterSpacing: 1.5, textTransform: "uppercase" }, submitButton: { alignItems: "center", backgroundColor: "#9478BF", borderRadius: 4, minWidth: 150, paddingHorizontal: 18, paddingVertical: 15 }, submitText: { color: "#FFF", fontSize: 12, fontWeight: "900", letterSpacing: 1.2, textTransform: "uppercase" },
 });

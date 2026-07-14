@@ -54,6 +54,26 @@ type PortalClient = {
 
 const fallbackDogImage = "https://placedog.net/220/220?id=11";
 
+export async function updateClientDog({ dogId, clientId, name, breed, age, notes }: { dogId: string; clientId: string; name: string; breed: string; age: string; notes: string }) {
+  const { error } = await supabase
+    .from("portal_dogs")
+    .update({ name: name.trim(), breed: breed.trim() || null, age: age.trim() || null, notes: notes.trim() || null })
+    .eq("id", dogId)
+    .eq("client_id", clientId);
+
+  if (error) throw error;
+}
+
+export async function deactivateClientDog(dogId: string, clientId: string) {
+  const { error } = await supabase.from("portal_dogs").update({ status: "inactive" }).eq("id", dogId).eq("client_id", clientId);
+  if (error) throw error;
+}
+
+export async function deleteClientDog(dogId: string, clientId: string) {
+  const { error } = await supabase.from("portal_dogs").delete().eq("id", dogId).eq("client_id", clientId);
+  if (error) throw error;
+}
+
 export async function fetchAdminDogsData(): Promise<DogsData> {
   const { data: dogs, error: dogsError } = await supabase
     .from("portal_dogs")

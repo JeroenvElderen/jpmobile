@@ -66,7 +66,7 @@ export default function ClientDogsScreen() {
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <ClientDogsHeader />
-        <ClientDogList dogs={dogsData.dogs} />
+        <ClientDogList dogs={dogsData.dogs} clientId={dogsData.clientId ?? ""} onDogChanged={() => loadDogs({ showLoading: false })} />
       </ScrollView>
 
       <ClientFloatingTabBar activeRoute="pets" />

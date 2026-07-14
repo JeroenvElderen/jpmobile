@@ -11,6 +11,8 @@ export type ClientBooking = {
   status: "Confirmed" | "Pending";
   location: string;
   avatar: string;
+  startsAtIso?: string;
+  endsAtIso?: string;
 };
 
 export type ClientPet = {
@@ -82,6 +84,21 @@ const activityIconMap: Record<string, { icon: keyof typeof Ionicons.glyphMap; co
   gallery: { icon: "images-outline", color: "#F97316" },
   update: { icon: "checkmark-circle-outline", color: "#16A34A" },
 };
+
+export async function cancelClientDashboardBooking(bookingId: string) {
+  const { error } = await supabase.from("portal_bookings").update({ status: "cancelled", sync_status: "needs_review", needs_review: true }).eq("id", bookingId);
+  if (error) throw error;
+}
+
+export async function deactivateClientDashboardPet(petId: string, clientId: string) {
+  const { error } = await supabase.from("portal_dogs").update({ status: "inactive" }).eq("id", petId).eq("client_id", clientId);
+  if (error) throw error;
+}
+
+export async function deleteClientDashboardPet(petId: string, clientId: string) {
+  const { error } = await supabase.from("portal_dogs").delete().eq("id", petId).eq("client_id", clientId);
+  if (error) throw error;
+}
 
 export async function fetchClientDashboardData(): Promise<ClientDashboardData> {
   const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -165,6 +182,8 @@ function mapBooking(booking: PortalBooking): ClientBooking {
     status: normalizeBookingStatus(booking.status),
     location: booking.location || "Location TBC",
     avatar: booking.cover_image_url || fallbackDogImage,
+    startsAtIso: booking.starts_at || undefined,
+    endsAtIso: booking.ends_at || undefined,
   };
 }
 
