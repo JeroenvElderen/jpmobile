@@ -322,7 +322,7 @@ async function createBookingRecord(supabase: ReturnType<typeof createClient>, in
     location,
     notes: input.notes?.trim() || null,
     status: "pending",
-    source: "manual",
+    source: "admin_import",
     sync_status: "pending",
   });
   if (error) throw error;

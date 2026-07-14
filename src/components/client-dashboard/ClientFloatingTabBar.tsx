@@ -24,6 +24,7 @@ type Props = {
 const serviceOptions = ["Dog walking", "Drop-in visit", "Dog sitting", "Other"];
 const durationOptions = ["30 minutes", "45 minutes", "1 hour", "1 hour 30 minutes", "2 hours", "Half day", "Full day", "Overnight / 24 hours"];
 const businessWhatsappNumber = process.env.EXPO_PUBLIC_BUSINESS_WHATSAPP_NUMBER || "353872473099";
+const clientBookingRequestSource = "website";
 const createEmptyDogDraft = (id = String(Date.now())): DogDraft => ({ id, name: "", breed: "", age: "", notes: "", avatar: null });
 
 export default function ClientFloatingTabBar({ activeRoute = "home" }: Props) {
@@ -277,23 +278,14 @@ async function createBookingRequests({ clientId, dogIds, selectedDogNames, servi
       location: location.trim() || null,
       notes: requestNotes,
       status: "needs_review",
-      source: "client_request",
+      source: clientBookingRequestSource,
       sync_status: "needs_review",
       needs_review: true,
     };
   });
 
-  console.log("Booking rows being inserted:", bookingRows);
-
-const { data, error } = await supabase
-  .from("portal_bookings")
-  .insert(bookingRows)
-  .select();
-
-console.log("Insert data:", data);
-console.log("Insert error:", error);
-
-if (error) throw error;
+  const { error } = await supabase.from("portal_bookings").insert(bookingRows);
+  if (error) throw error;
 }
 
 function parseRequestedStart(slot: BookingSlot) {
