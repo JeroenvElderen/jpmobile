@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { BrandLogo } from "@/components/BrandLogo";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function ClientDogsHeader() {
@@ -10,7 +11,7 @@ export default function ClientDogsHeader() {
 
       <View style={styles.titleWrap}>
         <Text style={styles.title}>Dogs</Text>
-        <Ionicons name="paw-outline" size={27} color="#4B22C8" />
+        <BrandLogo variant="mark" />
       </View>
 
       <TouchableOpacity style={styles.notification} activeOpacity={0.8}>

@@ -1,11 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
+import { BrandLogo } from "@/components/BrandLogo";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function DogsHeader() {
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.iconButton} activeOpacity={0.8}>
-        <Ionicons name="menu-outline" size={32} color="#141A33" />
+        <BrandLogo variant="mark" />
       </TouchableOpacity>
 
       <View style={styles.titleWrap}>

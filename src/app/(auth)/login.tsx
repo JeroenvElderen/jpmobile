@@ -5,8 +5,10 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BrandLogo, COMPANY_NAME } from '@/components/BrandLogo';
 import { supabase } from '@/lib/supabase';
 import { theme } from '@/lib/theme';
+import { Divider } from '@/components/ui';
 
 const ADMIN_EMAIL = 'jeroen@jeroenandpaws.com'.toLowerCase();
 
@@ -55,12 +57,15 @@ export default function LoginScreen() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <DecorativeBubble />
-        <BrandHeader />
 
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Text style={styles.title}>Welcome back <Text style={styles.heart}>♡</Text></Text>
-            <Text style={styles.subtitle}>Log in to your account</Text>
+            <View style={styles.brand}>
+              <BrandLogo />
+              <Text style={styles.padding} />
+              <Text style={styles.title}>Welcome back <Text style={styles.heart}>♡</Text></Text>
+              <Text style={styles.brandSubtitle}>Personal pet care, happy life. <Text style={styles.heart}>♡</Text></Text>
+            </View>
           </View>
 
           <View style={styles.form}>
@@ -136,16 +141,6 @@ function AuthField({ icon, label, rightIcon, onPressRightIcon, style, ...props }
   );
 }
 
-function BrandHeader() {
-  return (
-    <View style={styles.brand}>
-      <Ionicons name="paw" size={55} color={theme.colors.primaryDark} />
-      <Text style={styles.brandTitle}>PawCare</Text>
-      <Text style={styles.brandSubtitle}>Happy pets, happy life. <Text style={styles.heart}>♡</Text></Text>
-    </View>
-  );
-}
-
 function DecorativeBubble() {
   return <View style={styles.bubble}><View style={styles.bubbleDrop} /></View>;
 }
@@ -159,9 +154,9 @@ const styles = StyleSheet.create({
   content: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 42, paddingBottom: 30 },
   bubble: { backgroundColor: 'rgba(91,61,245,0.08)', borderRadius: 46, height: 92, position: 'absolute', right: -22, top: 66, width: 92 },
   bubbleDrop: { backgroundColor: 'rgba(91,61,245,0.08)', borderRadius: 18, bottom: -16, height: 34, position: 'absolute', right: 10, transform: [{ rotate: '-40deg' }], width: 28 },
-  brand: { alignItems: 'center', marginBottom: 54, marginTop: 24 },
-  brandTitle: { color: '#11162B', fontSize: 34, fontWeight: '900', letterSpacing: -0.5, marginTop: 4 },
-  brandSubtitle: { color: '#52618D', fontSize: 17, fontWeight: '500', marginTop: 12 },
+  brand: { alignItems: 'center', marginBottom: 54, marginTop: -30 },
+  brandTitle: { color: '#11162B', fontSize: 32, fontWeight: '900', letterSpacing: -0.5, marginTop: 10 },
+  brandSubtitle: { color: '#52618D', fontSize: 17, fontWeight: '500', marginTop: 12, marginBottom: -80 },
   heart: { color: '#4D1DFF', fontWeight: '900' },
   card: { backgroundColor: '#FFFFFF', borderColor: 'rgba(91,61,245,0.10)', borderRadius: 24, borderWidth: 1, paddingHorizontal: 24, paddingTop: 58, paddingBottom: 40, shadowColor: '#3F2B79', shadowOffset: { width: 0, height: 18 }, shadowOpacity: 0.08, shadowRadius: 40, elevation: 8 },
   cardHeader: { alignItems: 'center', marginBottom: 46 },
@@ -180,8 +175,9 @@ const styles = StyleSheet.create({
   buttonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
   pressed: { opacity: 0.84 },
   disabled: { opacity: 0.58 },
-  footer: { alignItems: 'center', flexDirection: 'row', justifyContent: 'center', marginTop: 'auto', paddingTop: 86 },
+  footer: { alignItems: 'center', flexDirection: 'row', justifyContent: 'center', marginTop: 'auto', paddingTop: 40 },
   footerText: { color: '#52618D', fontSize: 15, fontWeight: '500' },
   footerLink: { color: '#4D1DFF', fontSize: 15, fontWeight: '900' },
   bottomPaw: { bottom: 20, left: 10, position: 'absolute' },
+  padding: { marginBottom: 20 },
 });
