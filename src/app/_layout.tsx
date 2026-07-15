@@ -23,6 +23,10 @@ export default function RootLayout() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
+          name="complete-account"
+          options={{ animation: "none", headerShown: false }}
+        />
+        <Stack.Screen
           name="admin"
           options={{ animation: "none", headerShown: false }}
         />

@@ -6,6 +6,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BrandLogo, COMPANY_NAME } from '@/components/BrandLogo';
+import { getAccountSetupRouteForUser } from '@/lib/accountSetup';
 import { supabase } from '@/lib/supabase';
 import { theme } from '@/lib/theme';
 import { Divider } from '@/components/ui';
@@ -50,7 +51,7 @@ export default function LoginScreen() {
       return;
     }
 
-    router.replace('/client');
+    router.replace(getAccountSetupRouteForUser(data.user));
   };
 
   return (
