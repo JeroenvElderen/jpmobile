@@ -1,11 +1,13 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 
+import { PushNotificationsProvider } from "@/providers/PushNotificationsProvider";
+
 import { theme } from "@/lib/theme";
 
 export default function RootLayout() {
   return (
-    <>
+    <PushNotificationsProvider>
       <StatusBar style="light" />
       <Stack
         screenOptions={{
@@ -67,6 +69,6 @@ export default function RootLayout() {
           options={{ animation: "none", headerShown: false }}
         />
       </Stack>
-    </>
+    </PushNotificationsProvider>
   );
 }

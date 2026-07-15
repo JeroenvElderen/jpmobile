@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "301877178540",
+    "project_id": "jeroen-and-paws",
+    "storage_bucket": "jeroen-and-paws.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:301877178540:android:915c1409d41de7ded0af09",
+        "android_client_info": {
+          "package_name": "com.jer0m3.jeroenandpawsmobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDg7mhftK1pYNEUzFzUofFnYGSn6NMlSHo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

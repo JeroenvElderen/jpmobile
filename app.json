@@ -4,7 +4,7 @@
     "slug": "jeroenandpaws-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/logo4.svg",
+    "icon": "./assets/images/logo4.png",
     "scheme": "jeroenandpawsmobile",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -13,16 +13,17 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#4B22C8",
-        "foregroundImage": "./assets/images/logo4.svg",
+        "foregroundImage": "./assets/images/logo4.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.jer0m3.jeroenandpawsmobile"
+      "package": "com.jer0m3.jeroenandpawsmobile",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/logo4.svg"
+      "favicon": "./assets/images/logo4.png"
     },
     "plugins": [
       "expo-router",
@@ -30,7 +31,7 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#4B22C8",
-          "image": "./assets/images/logo4.svg",
+          "image": "./assets/images/logo4.png",
           "imageWidth": 220
         }
       ],
@@ -46,6 +47,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e487e7cb-0301-445f-a211-4972dd5274a3"
+      }
+    },
+    "owner": "jeroen-and-paws"
   }
 }
