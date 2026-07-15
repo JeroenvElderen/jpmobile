@@ -25,54 +25,26 @@ export async function completeClientAccount(input: {
 }) {
   const normalizedEmail = input.email.trim().toLowerCase();
 
-  try {
-    console.log("1. Starting account completion");
+   const { data: userData, error: userError } = await supabase.auth.getUser();
 
-    const { data: userData, error: userError } =
-      await supabase.auth.getUser();
+  if (userError) throw userError;
 
-    console.log("2. getUser finished", {
-      user: userData.user?.id,
-      error: userError,
-    });
+  const userId = userData.user?.id;
+  if (!userId) {
+    throw new Error("You need to be logged in.");
+  }
 
-    if (userError) throw userError;
-
-    const userId = userData.user?.id;
-    if (!userId) {
-      throw new Error("You need to be logged in.");
-    }
-
-    console.log("3. Updating PASSWORD ONLY");
-
-    const { data, error: authError } =
-  await supabase.auth.updateUser({
+  const { error: authError } = await supabase.auth.updateUser({
     email: normalizedEmail,
+    password: input.password,
   });
 
-    console.log("4. updateUser returned", {
-      data,
-      authError,
-    });
+  if (authError) throw authError;
 
-    if (authError) throw authError;
+  const { error: profileError } = await supabase
+    .from("portal_clients")
+    .update({ email: normalizedEmail })
+    .eq("auth_user_id", userId);
 
-    console.log("5. Updating portal_clients");
-
-    const { error: profileError } = await supabase
-      .from("portal_clients")
-      .update({ email: normalizedEmail })
-      .eq("auth_user_id", userId);
-
-    console.log("6. portal_clients finished", {
-      profileError,
-    });
-
-    if (profileError) throw profileError;
-
-    console.log("7. Done!");
-  } catch (e) {
-    console.error("completeClientAccount failed:", e);
-    throw e;
-  }
+  if (profileError) throw profileError;
 }
