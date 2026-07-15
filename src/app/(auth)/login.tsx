@@ -51,7 +51,11 @@ export default function LoginScreen() {
       return;
     }
 
-    router.replace(getAccountSetupRouteForUser(data.user));
+    try {
+      router.replace(await getAccountSetupRouteForUser(data.user));
+    } catch (routeError) {
+      setError(routeError instanceof Error ? routeError.message : 'Unable to load your account.');
+    }
   };
 
   return (

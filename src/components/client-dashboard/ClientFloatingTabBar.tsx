@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { isTemporaryOnboardingEmail } from "@/lib/accountSetup";
+import { isClientAccountComplete } from "@/lib/accountSetup";
 import { supabase } from "@/lib/supabase";
 
 type RouteKey = "home" | "bookings" | "pets" | "activity" | "profile" | "galleries";
@@ -37,8 +37,8 @@ export default function ClientFloatingTabBar({ activeRoute = "home" }: Props) {
   useEffect(() => {
     let cancelled = false;
 
-    supabase.auth.getUser().then(({ data }) => {
-      if (!cancelled && isTemporaryOnboardingEmail(data.user?.email)) {
+    supabase.auth.getUser().then(async ({ data }) => {
+      if (!cancelled && !(await isClientAccountComplete(data.user))) {
         router.replace("/complete-account");
       }
     });

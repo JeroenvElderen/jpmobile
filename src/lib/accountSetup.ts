@@ -15,8 +15,28 @@ export function isTemporaryOnboardingEmail(email?: string | null) {
   );
 }
 
-export function getAccountSetupRouteForUser(user?: Pick<User, "email"> | null) {
-  return isTemporaryOnboardingEmail(user?.email) ? "/complete-account" : "/client";
+export async function getClientAccountEmail(user?: Pick<User, "id" | "email"> | null) {
+  if (!user?.id) return user?.email ?? null;
+
+  const { data, error } = await supabase
+    .from("portal_clients")
+    .select("email")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  return data?.email ?? user.email ?? null;
+}
+
+export async function isClientAccountComplete(user?: Pick<User, "id" | "email"> | null) {
+  const accountEmail = await getClientAccountEmail(user);
+
+  return !isTemporaryOnboardingEmail(accountEmail);
+}
+
+export async function getAccountSetupRouteForUser(user?: Pick<User, "id" | "email"> | null) {
+  return (await isClientAccountComplete(user)) ? "/client" : "/complete-account";
 }
 
 export async function completeClientAccount(input: {
@@ -25,7 +45,7 @@ export async function completeClientAccount(input: {
 }) {
   const normalizedEmail = input.email.trim().toLowerCase();
 
-   const { data: userData, error: userError } = await supabase.auth.getUser();
+  const { data: userData, error: userError } = await supabase.auth.getUser();
 
   if (userError) throw userError;
 
@@ -35,7 +55,6 @@ export async function completeClientAccount(input: {
   }
 
   const { error: authError } = await supabase.auth.updateUser({
-    email: normalizedEmail,
     password: input.password,
   });
 

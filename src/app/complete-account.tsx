@@ -6,7 +6,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BrandLogo } from "@/components/BrandLogo";
-import { completeClientAccount, isTemporaryOnboardingEmail } from "@/lib/accountSetup";
+import { completeClientAccount, isClientAccountComplete, isTemporaryOnboardingEmail } from "@/lib/accountSetup";
 import { supabase } from "@/lib/supabase";
 import { theme } from "@/lib/theme";
 
@@ -21,11 +21,17 @@ export default function CompleteAccountScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (!isTemporaryOnboardingEmail(data.user?.email)) {
+    let cancelled = false;
+
+    supabase.auth.getUser().then(async ({ data }) => {
+      if (!cancelled && (await isClientAccountComplete(data.user))) {
         router.replace("/client");
       }
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   const handleCompleteAccount = async () => {
