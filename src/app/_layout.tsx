@@ -17,10 +17,10 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)/login" options={{ title: "Log In" }} />
+        <Stack.Screen name="(auth)/login" options={{ headerShown: false }} />
         <Stack.Screen
           name="(auth)/register"
-          options={{ title: "Create Account" }}
+          options={{ headerShown: false }}
         />
         <Stack.Screen
           name="admin"
