@@ -499,6 +499,7 @@ create table public.portal_dogs (
   age text null,
   status text not null default 'Active'::text,
   notes text null,
+  care_preferences text null,
   constraint portal_dogs_pkey primary key (id),
   constraint portal_dogs_client_id_fkey foreign KEY (client_id) references portal_clients (id) on delete CASCADE
 ) TABLESPACE pg_default;

@@ -11,6 +11,12 @@ import { fetchClientProfileData, type ClientProfile } from "@/lib/clientProfileD
 import { usePushNotifications } from "@/providers/PushNotificationsProvider";
 import { supabase } from "@/lib/supabase";
 
+type PetPreferenceDog = {
+  id: string;
+  name: string;
+  care_preferences: string | null;
+};
+
 type ProfilePopupMode = "personal" | "password" | "notifications" | "petPreferences";
 
 type ProfileItem = {
@@ -309,7 +315,7 @@ function ProfilePopup({ mode, profile, onClose, onSaved }: { mode: ProfilePopupM
   }
 
   if (mode === "petPreferences") {
-    return <PetPreferencesPopup visible={Boolean(mode)} profile={profile} onClose={onClose} />;
+    return <PetPreferencesPopup visible={Boolean(mode)} profile={profile} onClose={onClose} onSaved={onSaved} />;
   }
 
   const isPersonal = mode === "personal";
@@ -368,13 +374,11 @@ const notificationSettings: ToggleSetting[] = [
   { key: "marketing", title: "News & offers", subtitle: "Optional service announcements and promotions." },
 ];
 
-const petPreferenceSettings: ToggleSetting[] = [
-  { key: "walking", title: "Walking style", subtitle: "Solo walks, group walks, pace, leash notes, and route preferences." },
-  { key: "feeding", title: "Meals & treats", subtitle: "Meal timing, approved treats, portions, and water preferences." },
-  { key: "medication", title: "Medication reminders", subtitle: "Timing notes for medications, supplements, and special care." },
-  { key: "social", title: "Social comfort", subtitle: "Preferences around other dogs, people, children, and busy places." },
-  { key: "access", title: "Home access", subtitle: "Keys, codes, pickup/drop-off, and where supplies are kept." },
-  { key: "emergency", title: "Emergency care", subtitle: "Vet, contact, handling, and urgent-care instructions." },
+const petPreferencePrompts = [
+  "Walking style, leash behavior, route preferences, and pace",
+  "Meals, treats, medication, and water instructions",
+  "Social comfort with other pets, people, children, and busy places",
+  "Home access, supplies, vet, emergency, and handling notes",
 ];
 
 function NotificationSettingsPopup({ visible, onClose }: { visible: boolean; onClose: () => void }) {
@@ -444,43 +448,103 @@ function NotificationSettingsPopup({ visible, onClose }: { visible: boolean; onC
   );
 }
 
-function PetPreferencesPopup({ visible, profile, onClose }: { visible: boolean; profile: ClientProfile; onClose: () => void }) {
-  const [enabledSettings, setEnabledSettings] = useState<Record<string, boolean>>({});
-  const petNames = profile.dogNames === "No pets added yet" ? [] : profile.dogNames.split(/\s+and\s+/).map((name) => name.trim()).filter(Boolean);
+function PetPreferencesPopup({ visible, profile, onClose, onSaved }: { visible: boolean; profile: ClientProfile; onClose: () => void; onSaved: () => void }) {
+  const [dogs, setDogs] = useState<PetPreferenceDog[]>([]);
+  const [preferenceDrafts, setPreferenceDrafts] = useState<Record<string, string>>({});
+  const [isLoadingDogs, setIsLoadingDogs] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!visible) return;
 
     let isMounted = true;
-    AsyncStorage.getItem(`clientPetPreferences:${profile.clientId}`).then((stored) => {
-      const parsed = stored ? JSON.parse(stored) as Record<string, boolean> : null;
-      const defaults = Object.fromEntries(petPreferenceSettings.map((item) => [item.key, true]));
-      if (isMounted) setEnabledSettings({ ...defaults, ...parsed });
-    }).catch(() => undefined);
+    setIsLoadingDogs(true);
+    setFormError(null);
+
+    const loadDogs = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("portal_dogs")
+          .select("id, name, care_preferences")
+          .eq("client_id", profile.clientId)
+          .order("created_at", { ascending: true });
+
+        if (!isMounted) return;
+        if (error) throw error;
+
+        const rows = (data ?? []) as PetPreferenceDog[];
+        setDogs(rows);
+        setPreferenceDrafts(Object.fromEntries(rows.map((dog) => [dog.id, dog.care_preferences?.trim() ?? ""])));
+      } catch (loadError) {
+        if (isMounted) setFormError(loadError instanceof Error ? loadError.message : "Unable to load pet preferences.");
+      } finally {
+        if (isMounted) setIsLoadingDogs(false);
+      }
+    };
+
+    loadDogs();
 
     return () => { isMounted = false; };
   }, [profile.clientId, visible]);
 
-  const toggleSetting = async (key: string) => {
-    const next = { ...enabledSettings, [key]: !enabledSettings[key] };
-    setEnabledSettings(next);
-    await AsyncStorage.setItem(`clientPetPreferences:${profile.clientId}`, JSON.stringify(next));
+  const updateDraft = (dogId: string, value: string) => {
+    setPreferenceDrafts((current) => ({ ...current, [dogId]: value }));
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    setFormError(null);
+
+    try {
+      for (const dog of dogs) {
+        const { error } = await supabase
+          .from("portal_dogs")
+          .update({ care_preferences: preferenceDrafts[dog.id]?.trim() || null })
+          .eq("id", dog.id)
+          .eq("client_id", profile.clientId);
+
+        if (error) throw error;
+      }
+
+      onSaved();
+      onClose();
+      Alert.alert("Pet preferences saved", "Your care notes have been saved for your pets.");
+    } catch (saveError) {
+      setFormError(saveError instanceof Error ? saveError.message : "Unable to save pet preferences.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
-      <View style={styles.popupContainer}>
+      <KeyboardAvoidingView style={styles.popupContainer} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <PopupHeader title="Pet Preferences" onClose={onClose} />
-        <ScrollView contentContainerStyle={styles.popupContent} showsVerticalScrollIndicator={false}>
-          <Text style={styles.popupIntro}>Manage care preferences for your pets here. This is separate from pet details like breed, age, or photos.</Text>
+        <ScrollView contentContainerStyle={styles.popupContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={styles.petCard}>
-            <Text style={styles.petCardLabel}>Preferences apply to</Text>
-            <Text style={styles.petCardTitle}>{petNames.length ? petNames.join(", ") : "Your pets"}</Text>
+            <Text style={styles.petCardLabel}>Helpful details to include</Text>
+            {petPreferencePrompts.map((prompt) => <Text key={prompt} style={styles.petCardPrompt}>• {prompt}</Text>)}
           </View>
-          <PreferenceList settings={petPreferenceSettings} enabledSettings={enabledSettings} onToggle={toggleSetting} />
-          <Text style={styles.helperText}>Turn on each preference area you want the care team to review before bookings.</Text>
+          {formError ? <Text style={styles.formError}>{formError}</Text> : null}
+          {isLoadingDogs ? <ActivityIndicator color="#5B3DF5" style={styles.preferencesLoader} /> : null}
+          {!isLoadingDogs && dogs.length === 0 ? <Text style={styles.helperText}>Add a pet first, then return here to write their care preferences.</Text> : null}
+          {dogs.map((dog) => (
+            <ProfileField
+              key={dog.id}
+              label={`${dog.name} preferences`}
+              value={preferenceDrafts[dog.id] ?? ""}
+              onChangeText={(value) => updateDraft(dog.id, value)}
+              multiline
+            />
+          ))}
+          {dogs.length ? (
+            <TouchableOpacity style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} activeOpacity={0.86} disabled={isSaving} onPress={handleSave}>
+              <Text style={styles.saveButtonText}>{isSaving ? "Saving..." : "Save pet preferences"}</Text>
+            </TouchableOpacity>
+          ) : null}
         </ScrollView>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -667,5 +731,7 @@ const styles = StyleSheet.create({
   petCard: { backgroundColor: "#F3EEFF", borderColor: "#E2DBFF", borderRadius: 18, borderWidth: 1, marginBottom: 2, padding: 18 },
   petCardLabel: { color: "#6B5AE8", fontSize: 13, fontWeight: "900", marginBottom: 6, textTransform: "uppercase" },
   petCardTitle: { color: "#10162C", fontSize: 20, fontWeight: "900" },
+  petCardPrompt: { color: "#53608F", fontSize: 14, fontWeight: "700", lineHeight: 21, marginTop: 4 },
+  preferencesLoader: { marginVertical: 18 },
   helperText: { color: "#6C728C", fontSize: 14, fontWeight: "600", lineHeight: 21, marginTop: 16 },
 });
