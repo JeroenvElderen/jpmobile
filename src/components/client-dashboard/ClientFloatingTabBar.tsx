@@ -71,9 +71,8 @@ export default function ClientFloatingTabBar({ activeRoute = "home" }: Props) {
         <View style={styles.moreGroup}>
           {isMoreOpen && (
             <View style={styles.moreMenu}>
-              <MoreButton icon="logo-whatsapp" label="Send message" active={quickAction === "message"} onPress={() => { setIsMoreOpen(false); setQuickAction("message"); }} />
-              <View style={styles.moreDivider} />
               <MoreButton icon="images-outline" label="Galleries" active={activeRoute === "galleries"} onPress={() => navigate("/client/galleries")} />
+                <View style={styles.moreDivider} />
               <MoreButton icon="person-outline" label="Profile" active={activeRoute === "profile"} onPress={() => navigate("/client/profile")} />
             </View>
           )}

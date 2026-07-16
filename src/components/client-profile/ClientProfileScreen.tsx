@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import ClientFloatingTabBar from "@/components/client-dashboard/ClientFloatingTabBar";
-import { usePushNotifications } from "@/providers/PushNotificationsProvider";
 import { fetchClientProfileData, type ClientProfile } from "@/lib/clientProfileData";
 import { supabase } from "@/lib/supabase";
 
@@ -56,7 +55,6 @@ export default function ClientProfileScreen() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
-  const { expoPushToken, isRegistering, lastRegistrationStatus, registerForPushNotifications, scheduleTestNotification } = usePushNotifications();
 
   const loadProfile = useCallback(async ({ showLoading = true }: { showLoading?: boolean } = {}) => {
     if (showLoading) setIsLoading(true);
@@ -99,39 +97,6 @@ export default function ClientProfileScreen() {
     };
   }, [profile?.clientId, loadProfile]);
 
-  const handleEnableNotifications = useCallback(async () => {
-    try {
-      const result = await registerForPushNotifications();
-
-      if (result.expoPushToken) {
-        Alert.alert("Notifications enabled", "Push notifications are enabled for this device.");
-        return;
-      }
-
-      if (result.status === "missing-project-id") {
-        Alert.alert("Project ID needed", "Add your EAS project ID to the Expo app config before requesting a push token.");
-        return;
-      }
-
-      if (result.status === "unavailable") {
-        Alert.alert("Physical device needed", "Push notifications require a physical device or supported simulator.");
-        return;
-      }
-
-      Alert.alert("Notifications disabled", "Enable notifications in your device settings to receive updates.");
-    } catch (registrationError) {
-      Alert.alert("Notification setup failed", registrationError instanceof Error ? registrationError.message : "Unable to enable notifications.");
-    }
-  }, [registerForPushNotifications]);
-
-  const handleSendTestNotification = useCallback(async () => {
-    try {
-      await scheduleTestNotification();
-    } catch (scheduleError) {
-      Alert.alert("Test notification failed", scheduleError instanceof Error ? scheduleError.message : "Unable to schedule a test notification.");
-    }
-  }, [scheduleTestNotification]);
-
   const handleLogout = useCallback(async () => {
     if (isLoggingOut) return;
 
@@ -162,14 +127,6 @@ export default function ClientProfileScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <ProfileHeader activityCount={profile.recentActivityCount} />
         <ProfileSummary profile={profile} />
-        <NotificationSettingsCard
-          expoPushToken={expoPushToken}
-          isRegistering={isRegistering}
-          lastRegistrationStatus={lastRegistrationStatus}
-          onEnable={handleEnableNotifications}
-          onSendTest={handleSendTestNotification}
-        />
-
         {profileSections.map((section) => (
           <View key={section.title} style={styles.section}>
             <Text style={styles.sectionTitle}>{section.title}</Text>
@@ -192,52 +149,6 @@ export default function ClientProfileScreen() {
   );
 }
 
-function NotificationSettingsCard({
-  expoPushToken,
-  isRegistering,
-  lastRegistrationStatus,
-  onEnable,
-  onSendTest,
-}: {
-  expoPushToken: string | null;
-  isRegistering: boolean;
-  lastRegistrationStatus: string | null;
-  onEnable: () => void;
-  onSendTest: () => void;
-}) {
-  const isEnabled = Boolean(expoPushToken);
-  const statusText = isEnabled
-    ? "Push notifications are enabled on this device."
-    : lastRegistrationStatus === "missing-project-id"
-      ? "Add an EAS project ID to create Expo push tokens."
-      : "Enable updates about bookings, galleries, and account activity.";
-
-  return (
-    <View style={styles.notificationCard}>
-      <View style={styles.notificationCardHeader}>
-        <View style={styles.notificationIconWrap}>
-          <Ionicons name={isEnabled ? "notifications" : "notifications-outline"} size={26} color="#5B3DF5" />
-        </View>
-        <View style={styles.notificationCopy}>
-          <Text style={styles.notificationTitle}>Push notifications</Text>
-          <Text style={styles.notificationDescription}>{statusText}</Text>
-        </View>
-      </View>
-
-      {expoPushToken ? <Text style={styles.pushTokenText} numberOfLines={1}>{expoPushToken}</Text> : null}
-
-      <View style={styles.notificationActions}>
-        <TouchableOpacity style={styles.enableNotificationsButton} activeOpacity={0.86} onPress={onEnable} disabled={isRegistering}>
-          <Text style={styles.enableNotificationsText}>{isRegistering ? "Enabling..." : isEnabled ? "Refresh token" : "Enable notifications"}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.testNotificationButton} activeOpacity={0.86} onPress={onSendTest}>
-          <Text style={styles.testNotificationText}>Send test</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
-
 function ProfileHeader({ activityCount }: { activityCount: number }) {
   return (
     <View style={styles.header}>
@@ -255,12 +166,9 @@ function ProfileHeader({ activityCount }: { activityCount: number }) {
 
 function ProfileSummary({ profile }: { profile: ClientProfile }) {
   return (
-    <TouchableOpacity style={styles.summaryCard} activeOpacity={0.88}>
+    <View style={styles.summaryCard}>
       <View style={styles.avatarWrap}>
         <Image source={profile.avatarUrl} style={styles.avatar} contentFit="cover" />
-        <View style={styles.editAvatarButton}>
-          <Ionicons name="sync" size={18} color="#5B3DF5" />
-        </View>
       </View>
 
       <View style={styles.summaryDetails}>
@@ -271,9 +179,7 @@ function ProfileSummary({ profile }: { profile: ClientProfile }) {
         <ContactLine icon="call-outline" text={profile.phone} />
         <Text style={styles.memberSince}>{profile.memberSince}</Text>
       </View>
-
-      <Ionicons name="chevron-forward" size={24} color="#24315F" />
-    </TouchableOpacity>
+    </View>
   );
 }
 
@@ -345,67 +251,26 @@ const styles = StyleSheet.create({
   },
   badgeText: { color: "#FFF", fontSize: 12, fontWeight: "800" },
   summaryCard: {
-    alignItems: "center",
+    alignItems: "flex-start",
     backgroundColor: "#FBF9FF",
     borderColor: "#ECE7FF",
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
     flexDirection: "row",
-    gap: 18,
+    gap: 16,
     marginBottom: 22,
-    padding: 20,
+    padding: 18,
     shadowColor: "#5B3DF5",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.06,
     shadowRadius: 20,
   },
-  avatarWrap: { height: 112, width: 112 },
-  avatar: { borderRadius: 56, height: 112, width: 112 },
-  editAvatarButton: {
-    alignItems: "center",
-    backgroundColor: "#FFF",
-    borderRadius: 20,
-    bottom: 0,
-    height: 40,
-    justifyContent: "center",
-    position: "absolute",
-    right: 0,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    width: 40,
-  },
-  notificationCard: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#E6EAF5",
-    borderRadius: 18,
-    borderWidth: 1,
-    marginBottom: 22,
-    padding: 18,
-  },
-  notificationCardHeader: { alignItems: "center", flexDirection: "row", gap: 14 },
-  notificationIconWrap: {
-    alignItems: "center",
-    backgroundColor: "#F3EEFF",
-    borderRadius: 24,
-    height: 48,
-    justifyContent: "center",
-    width: 48,
-  },
-  notificationCopy: { flex: 1 },
-  notificationTitle: { color: "#10162C", fontSize: 18, fontWeight: "800", marginBottom: 4 },
-  notificationDescription: { color: "#53608F", fontSize: 14, fontWeight: "600", lineHeight: 20 },
-  pushTokenText: { color: "#70758E", fontSize: 12, fontWeight: "600", marginTop: 14 },
-  notificationActions: { flexDirection: "row", gap: 10, marginTop: 16 },
-  enableNotificationsButton: { backgroundColor: "#5B3DF5", borderRadius: 14, flex: 1, paddingVertical: 14 },
-  enableNotificationsText: { color: "#FFF", fontSize: 14, fontWeight: "800", textAlign: "center" },
-  testNotificationButton: { backgroundColor: "#F3EEFF", borderRadius: 14, paddingHorizontal: 18, paddingVertical: 14 },
-  testNotificationText: { color: "#5B3DF5", fontSize: 14, fontWeight: "800", textAlign: "center" },
-  summaryDetails: { flex: 1, gap: 10 },
-  name: { color: "#080D20", fontSize: 25, fontWeight: "800", marginBottom: 2 },
+  avatarWrap: { height: 92, width: 92 },
+  avatar: { borderRadius: 46, height: 92, width: 92 },
+  summaryDetails: { flex: 1, gap: 8, paddingTop: 2 },
+  name: { color: "#080D20", fontSize: 23, fontWeight: "800", marginBottom: 2 },
   contactLine: { alignItems: "center", flexDirection: "row", gap: 11 },
-  contactText: { color: "#53608F", flex: 1, fontSize: 16, fontWeight: "600" },
+  contactText: { color: "#53608F", flex: 1, fontSize: 15, fontWeight: "600", lineHeight: 20 },
   memberSince: { color: "#7A6AF8", fontSize: 14, fontWeight: "800", marginTop: 2 },
   section: { marginBottom: 22 },
   sectionTitle: { color: "#080D20", fontSize: 22, fontWeight: "800", marginBottom: 12 },
