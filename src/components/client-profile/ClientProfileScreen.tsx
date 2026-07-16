@@ -1,17 +1,23 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import ClientFloatingTabBar from "@/components/client-dashboard/ClientFloatingTabBar";
 import { fetchClientProfileData, type ClientProfile } from "@/lib/clientProfileData";
+import { usePushNotifications } from "@/providers/PushNotificationsProvider";
 import { supabase } from "@/lib/supabase";
+
+type ProfilePopupMode = "personal" | "password" | "notifications" | "petPreferences";
 
 type ProfileItem = {
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
   subtitle: string;
+  popupMode?: ProfilePopupMode;
 };
 
 type ProfileSection = {
@@ -23,16 +29,16 @@ const profileSections: ProfileSection[] = [
   {
     title: "Account",
     items: [
-      { icon: "person-outline", title: "Personal Information", subtitle: "Review your saved contact details" },
-      { icon: "lock-closed-outline", title: "Change Password", subtitle: "Update your password" },
-      { icon: "notifications-outline", title: "Notifications", subtitle: "Manage your notification preferences" },
+      { icon: "person-outline", title: "Personal Information", subtitle: "Review your saved contact details", popupMode: "personal" },
+      { icon: "lock-closed-outline", title: "Change Password", subtitle: "Update your password", popupMode: "password" },
+      { icon: "notifications-outline", title: "Notifications", subtitle: "Manage every notification setting", popupMode: "notifications" },
       { icon: "card-outline", title: "Payment Methods", subtitle: "Manage your saved payment methods" },
     ],
   },
   {
     title: "Preferences",
     items: [
-      { icon: "paw-outline", title: "Pet Preferences", subtitle: "View the pets linked to your account" },
+      { icon: "paw-outline", title: "Pet Preferences", subtitle: "Set care preferences for your pets", popupMode: "petPreferences" },
       { icon: "calendar-outline", title: "Booking Preferences", subtitle: "Set your booking and service preferences" },
       { icon: "location-outline", title: "Address", subtitle: "Confirm your saved care address" },
     ],
@@ -53,7 +59,7 @@ export default function ClientProfileScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [activePopup, setActivePopup] = useState<"personal" | "password" | null>(null);
+  const [activePopup, setActivePopup] = useState<ProfilePopupMode | null>(null);
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
 
@@ -134,8 +140,7 @@ export default function ClientProfileScreen() {
             <View style={styles.sectionCard}>
               {section.items.map((item, index) => (
                 <ProfileRow key={item.title} item={item} isLast={index === section.items.length - 1} onPress={() => {
-                  if (item.title === "Personal Information") setActivePopup("personal");
-                  if (item.title === "Change Password") setActivePopup("password");
+                  if (item.popupMode) setActivePopup(item.popupMode);
                 }} />
               ))}
             </View>
@@ -214,7 +219,7 @@ function ProfileRow({ item, isLast, onPress }: { item: ProfileItem; isLast: bool
   );
 }
 
-function ProfilePopup({ mode, profile, onClose, onSaved }: { mode: "personal" | "password" | null; profile: ClientProfile; onClose: () => void; onSaved: () => void }) {
+function ProfilePopup({ mode, profile, onClose, onSaved }: { mode: ProfilePopupMode | null; profile: ClientProfile; onClose: () => void; onSaved: () => void }) {
   const [fullName, setFullName] = useState(profile.fullName === "Client" ? "" : profile.fullName);
   const [email, setEmail] = useState(profile.email === "No email on file" ? "" : profile.email);
   const [phone, setPhone] = useState(profile.phone === "No phone on file" ? "" : profile.phone);
@@ -299,6 +304,14 @@ function ProfilePopup({ mode, profile, onClose, onSaved }: { mode: "personal" | 
     }
   };
 
+  if (mode === "notifications") {
+    return <NotificationSettingsPopup visible={Boolean(mode)} onClose={onClose} />;
+  }
+
+  if (mode === "petPreferences") {
+    return <PetPreferencesPopup visible={Boolean(mode)} profile={profile} onClose={onClose} />;
+  }
+
   const isPersonal = mode === "personal";
 
   return (
@@ -337,6 +350,166 @@ function ProfilePopup({ mode, profile, onClose, onSaved }: { mode: "personal" | 
         </ScrollView>
       </KeyboardAvoidingView>
     </Modal>
+  );
+}
+
+type ToggleSetting = {
+  key: string;
+  title: string;
+  subtitle: string;
+};
+
+const notificationSettings: ToggleSetting[] = [
+  { key: "booking", title: "Booking updates", subtitle: "New, changed, cancelled, and confirmed bookings." },
+  { key: "reminders", title: "Visit reminders", subtitle: "Upcoming walks, visits, daycare, and boarding reminders." },
+  { key: "messages", title: "Messages", subtitle: "Direct messages and support replies." },
+  { key: "photos", title: "Photos & report cards", subtitle: "New gallery photos, updates, and visit summaries." },
+  { key: "billing", title: "Payments & invoices", subtitle: "Receipts, invoices, and payment method notices." },
+  { key: "marketing", title: "News & offers", subtitle: "Optional service announcements and promotions." },
+];
+
+const petPreferenceSettings: ToggleSetting[] = [
+  { key: "walking", title: "Walking style", subtitle: "Solo walks, group walks, pace, leash notes, and route preferences." },
+  { key: "feeding", title: "Meals & treats", subtitle: "Meal timing, approved treats, portions, and water preferences." },
+  { key: "medication", title: "Medication reminders", subtitle: "Timing notes for medications, supplements, and special care." },
+  { key: "social", title: "Social comfort", subtitle: "Preferences around other dogs, people, children, and busy places." },
+  { key: "access", title: "Home access", subtitle: "Keys, codes, pickup/drop-off, and where supplies are kept." },
+  { key: "emergency", title: "Emergency care", subtitle: "Vet, contact, handling, and urgent-care instructions." },
+];
+
+function NotificationSettingsPopup({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const { expoPushToken, isRegistering, lastRegistrationStatus, registerForPushNotifications, scheduleTestNotification } = usePushNotifications();
+  const [enabledSettings, setEnabledSettings] = useState<Record<string, boolean>>({});
+  const [permissionStatus, setPermissionStatus] = useState<Notifications.PermissionStatus | "unknown">("unknown");
+
+  useEffect(() => {
+    if (!visible) return;
+
+    let isMounted = true;
+    AsyncStorage.getItem("clientNotificationPreferences").then((stored) => {
+      const parsed = stored ? JSON.parse(stored) as Record<string, boolean> : null;
+      const defaults = Object.fromEntries(notificationSettings.map((item) => [item.key, item.key !== "marketing"]));
+      if (isMounted) setEnabledSettings({ ...defaults, ...parsed });
+    }).catch(() => undefined);
+
+    Notifications.getPermissionsAsync().then(({ status }) => {
+      if (isMounted) setPermissionStatus(status);
+    }).catch(() => {
+      if (isMounted) setPermissionStatus("unknown");
+    });
+
+    return () => { isMounted = false; };
+  }, [visible]);
+
+  const toggleSetting = async (key: string) => {
+    const next = { ...enabledSettings, [key]: !enabledSettings[key] };
+    setEnabledSettings(next);
+    await AsyncStorage.setItem("clientNotificationPreferences", JSON.stringify(next));
+  };
+
+  const handleEnablePush = async () => {
+    const result = await registerForPushNotifications();
+    if (result.status === Notifications.PermissionStatus.GRANTED) {
+      setPermissionStatus(result.status);
+      Alert.alert("Notifications enabled", "Push notifications are ready for this device.");
+    } else {
+      setPermissionStatus(result.status === "unavailable" || result.status === "missing-project-id" ? "unknown" : result.status);
+      Alert.alert("Notifications unavailable", "Please enable notifications in your device settings to receive alerts.");
+    }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
+      <View style={styles.popupContainer}>
+        <PopupHeader title="Notifications" onClose={onClose} />
+        <ScrollView contentContainerStyle={styles.popupContent} showsVerticalScrollIndicator={false}>
+          <Text style={styles.popupIntro}>Choose every type of notification you want from Jeroen & Paws. Device push permission applies to all push alerts.</Text>
+          <View style={styles.statusCard}>
+            <Ionicons name={permissionStatus === Notifications.PermissionStatus.GRANTED ? "notifications" : "notifications-off-outline"} size={24} color="#5B3DF5" />
+            <View style={styles.statusCopy}>
+              <Text style={styles.statusTitle}>{permissionStatus === Notifications.PermissionStatus.GRANTED ? "Push notifications enabled" : "Push notifications not enabled"}</Text>
+              <Text style={styles.statusText}>{expoPushToken ? "This device is registered for Expo push notifications." : `Status: ${lastRegistrationStatus ?? permissionStatus}`}</Text>
+            </View>
+          </View>
+          <TouchableOpacity style={[styles.saveButton, isRegistering && styles.saveButtonDisabled]} disabled={isRegistering} activeOpacity={0.86} onPress={handleEnablePush}>
+            <Text style={styles.saveButtonText}>{isRegistering ? "Checking permission..." : "Enable push notifications"}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.secondaryButton} activeOpacity={0.86} onPress={scheduleTestNotification}>
+            <Text style={styles.secondaryButtonText}>Send test notification</Text>
+          </TouchableOpacity>
+          <PreferenceList settings={notificationSettings} enabledSettings={enabledSettings} onToggle={toggleSetting} />
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+function PetPreferencesPopup({ visible, profile, onClose }: { visible: boolean; profile: ClientProfile; onClose: () => void }) {
+  const [enabledSettings, setEnabledSettings] = useState<Record<string, boolean>>({});
+  const petNames = profile.dogNames === "No pets added yet" ? [] : profile.dogNames.split(/\s+and\s+/).map((name) => name.trim()).filter(Boolean);
+
+  useEffect(() => {
+    if (!visible) return;
+
+    let isMounted = true;
+    AsyncStorage.getItem(`clientPetPreferences:${profile.clientId}`).then((stored) => {
+      const parsed = stored ? JSON.parse(stored) as Record<string, boolean> : null;
+      const defaults = Object.fromEntries(petPreferenceSettings.map((item) => [item.key, true]));
+      if (isMounted) setEnabledSettings({ ...defaults, ...parsed });
+    }).catch(() => undefined);
+
+    return () => { isMounted = false; };
+  }, [profile.clientId, visible]);
+
+  const toggleSetting = async (key: string) => {
+    const next = { ...enabledSettings, [key]: !enabledSettings[key] };
+    setEnabledSettings(next);
+    await AsyncStorage.setItem(`clientPetPreferences:${profile.clientId}`, JSON.stringify(next));
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
+      <View style={styles.popupContainer}>
+        <PopupHeader title="Pet Preferences" onClose={onClose} />
+        <ScrollView contentContainerStyle={styles.popupContent} showsVerticalScrollIndicator={false}>
+          <Text style={styles.popupIntro}>Manage care preferences for your pets here. This is separate from pet details like breed, age, or photos.</Text>
+          <View style={styles.petCard}>
+            <Text style={styles.petCardLabel}>Preferences apply to</Text>
+            <Text style={styles.petCardTitle}>{petNames.length ? petNames.join(", ") : "Your pets"}</Text>
+          </View>
+          <PreferenceList settings={petPreferenceSettings} enabledSettings={enabledSettings} onToggle={toggleSetting} />
+          <Text style={styles.helperText}>Turn on each preference area you want the care team to review before bookings.</Text>
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+function PopupHeader({ title, onClose }: { title: string; onClose: () => void }) {
+  return (
+    <View style={styles.popupHeader}>
+      <TouchableOpacity style={styles.popupClose} activeOpacity={0.8} onPress={onClose}>
+        <Ionicons name="close" size={28} color="#141A33" />
+      </TouchableOpacity>
+      <Text style={styles.popupTitle}>{title}</Text>
+      <View style={styles.popupClose} />
+    </View>
+  );
+}
+
+function PreferenceList({ settings, enabledSettings, onToggle }: { settings: ToggleSetting[]; enabledSettings: Record<string, boolean>; onToggle: (key: string) => void }) {
+  return (
+    <View style={styles.preferenceCard}>
+      {settings.map((setting, index) => (
+        <View key={setting.key} style={[styles.preferenceRow, index < settings.length - 1 && styles.preferenceDivider]}>
+          <View style={styles.preferenceCopy}>
+            <Text style={styles.preferenceTitle}>{setting.title}</Text>
+            <Text style={styles.preferenceSubtitle}>{setting.subtitle}</Text>
+          </View>
+          <Switch value={Boolean(enabledSettings[setting.key])} onValueChange={() => onToggle(setting.key)} trackColor={{ false: "#D7DDEB", true: "#CFC7FF" }} thumbColor={enabledSettings[setting.key] ? "#5B3DF5" : "#F7F8FC"} />
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -479,4 +652,20 @@ const styles = StyleSheet.create({
   saveButton: { alignItems: "center", backgroundColor: "#5B3DF5", borderRadius: 16, justifyContent: "center", marginTop: 10, paddingVertical: 18 },
   saveButtonDisabled: { opacity: 0.65 },
   saveButtonText: { color: "#FFF", fontSize: 17, fontWeight: "800" },
+  secondaryButton: { alignItems: "center", backgroundColor: "#F1EEFF", borderColor: "#DED7FF", borderRadius: 16, borderWidth: 1, justifyContent: "center", marginTop: 12, paddingVertical: 17 },
+  secondaryButtonText: { color: "#4B32D8", fontSize: 16, fontWeight: "800" },
+  statusCard: { alignItems: "center", backgroundColor: "#FFF", borderColor: "#E0E5F2", borderRadius: 18, borderWidth: 1, flexDirection: "row", gap: 14, marginBottom: 16, padding: 16 },
+  statusCopy: { flex: 1 },
+  statusTitle: { color: "#10162C", fontSize: 16, fontWeight: "900", marginBottom: 5 },
+  statusText: { color: "#53608F", fontSize: 14, fontWeight: "600", lineHeight: 20 },
+  preferenceCard: { backgroundColor: "#FFF", borderColor: "#E0E5F2", borderRadius: 18, borderWidth: 1, marginTop: 18, overflow: "hidden" },
+  preferenceRow: { alignItems: "center", flexDirection: "row", gap: 14, minHeight: 90, paddingHorizontal: 16, paddingVertical: 14 },
+  preferenceDivider: { borderBottomColor: "#E8ECF5", borderBottomWidth: 1 },
+  preferenceCopy: { flex: 1 },
+  preferenceTitle: { color: "#10162C", fontSize: 16, fontWeight: "900", marginBottom: 5 },
+  preferenceSubtitle: { color: "#53608F", fontSize: 14, fontWeight: "600", lineHeight: 20 },
+  petCard: { backgroundColor: "#F3EEFF", borderColor: "#E2DBFF", borderRadius: 18, borderWidth: 1, marginBottom: 2, padding: 18 },
+  petCardLabel: { color: "#6B5AE8", fontSize: 13, fontWeight: "900", marginBottom: 6, textTransform: "uppercase" },
+  petCardTitle: { color: "#10162C", fontSize: 20, fontWeight: "900" },
+  helperText: { color: "#6C728C", fontSize: 14, fontWeight: "600", lineHeight: 21, marginTop: 16 },
 });
