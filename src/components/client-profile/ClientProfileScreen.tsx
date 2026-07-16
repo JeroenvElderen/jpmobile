@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import ClientFloatingTabBar from "@/components/client-dashboard/ClientFloatingTabBar";
 import { fetchClientProfileData, type ClientProfile } from "@/lib/clientProfileData";
@@ -53,6 +53,7 @@ export default function ClientProfileScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [activePopup, setActivePopup] = useState<"personal" | "password" | null>(null);
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
 
@@ -132,7 +133,10 @@ export default function ClientProfileScreen() {
             <Text style={styles.sectionTitle}>{section.title}</Text>
             <View style={styles.sectionCard}>
               {section.items.map((item, index) => (
-                <ProfileRow key={item.title} item={item} isLast={index === section.items.length - 1} />
+                <ProfileRow key={item.title} item={item} isLast={index === section.items.length - 1} onPress={() => {
+                  if (item.title === "Personal Information") setActivePopup("personal");
+                  if (item.title === "Change Password") setActivePopup("password");
+                }} />
               ))}
             </View>
           </View>
@@ -144,6 +148,7 @@ export default function ClientProfileScreen() {
         </TouchableOpacity>
       </ScrollView>
 
+      <ProfilePopup mode={activePopup} profile={profile} onClose={() => setActivePopup(null)} onSaved={() => loadProfile({ showLoading: false })} />
       <ClientFloatingTabBar activeRoute="profile" />
     </View>
   );
@@ -192,9 +197,9 @@ function ContactLine({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; tex
   );
 }
 
-function ProfileRow({ item, isLast }: { item: ProfileItem; isLast: boolean }) {
+function ProfileRow({ item, isLast, onPress }: { item: ProfileItem; isLast: boolean; onPress?: () => void }) {
   return (
-    <TouchableOpacity style={styles.row} activeOpacity={0.82}>
+    <TouchableOpacity style={styles.row} activeOpacity={0.82} onPress={onPress}>
       <View style={styles.rowIconWrap}>
         <Ionicons name={item.icon} size={27} color="#5B3DF5" />
       </View>
@@ -206,6 +211,151 @@ function ProfileRow({ item, isLast }: { item: ProfileItem; isLast: boolean }) {
         <Ionicons name="chevron-forward" size={22} color="#53608F" />
       </View>
     </TouchableOpacity>
+  );
+}
+
+function ProfilePopup({ mode, profile, onClose, onSaved }: { mode: "personal" | "password" | null; profile: ClientProfile; onClose: () => void; onSaved: () => void }) {
+  const [fullName, setFullName] = useState(profile.fullName === "Client" ? "" : profile.fullName);
+  const [email, setEmail] = useState(profile.email === "No email on file" ? "" : profile.email);
+  const [phone, setPhone] = useState(profile.phone === "No phone on file" ? "" : profile.phone);
+  const [address, setAddress] = useState(profile.address === "No address on file" ? "" : profile.address);
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!mode) return;
+    setFullName(profile.fullName === "Client" ? "" : profile.fullName);
+    setEmail(profile.email === "No email on file" ? "" : profile.email);
+    setPhone(profile.phone === "No phone on file" ? "" : profile.phone);
+    setAddress(profile.address === "No address on file" ? "" : profile.address);
+    setOldPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setFormError(null);
+  }, [mode, profile.address, profile.email, profile.fullName, profile.phone]);
+
+  const handleSavePersonal = async () => {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!fullName.trim() || !normalizedEmail) {
+      setFormError("Name and email are required.");
+      return;
+    }
+
+    setIsSaving(true);
+    setFormError(null);
+    try {
+      const { error: profileError } = await supabase
+        .from("portal_clients")
+        .update({ full_name: fullName.trim(), email: normalizedEmail, phone: phone.trim() || null, address: address.trim() || null })
+        .eq("id", profile.clientId);
+
+      if (profileError) throw profileError;
+
+      const { error: authError } = await supabase.auth.updateUser({ email: normalizedEmail });
+      if (authError) throw authError;
+
+      onSaved();
+      onClose();
+      Alert.alert("Profile updated", "Your personal information has been saved.");
+    } catch (saveError) {
+      setFormError(saveError instanceof Error ? saveError.message : "Unable to save your personal information.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSavePassword = async () => {
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      setFormError("Old password, new password, and confirmation are required.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setFormError("New password must be at least 8 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setFormError("New passwords do not match.");
+      return;
+    }
+
+    setIsSaving(true);
+    setFormError(null);
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email: profile.email, password: oldPassword });
+      if (signInError) throw signInError;
+
+      const { error: passwordError } = await supabase.auth.updateUser({ password: newPassword });
+      if (passwordError) throw passwordError;
+
+      onClose();
+      Alert.alert("Password updated", "Your password has been changed.");
+    } catch (saveError) {
+      setFormError(saveError instanceof Error ? saveError.message : "Unable to change your password.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const isPersonal = mode === "personal";
+
+  return (
+    <Modal visible={Boolean(mode)} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
+      <KeyboardAvoidingView style={styles.popupContainer} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <View style={styles.popupHeader}>
+          <TouchableOpacity style={styles.popupClose} activeOpacity={0.8} onPress={onClose}>
+            <Ionicons name="close" size={28} color="#141A33" />
+          </TouchableOpacity>
+          <Text style={styles.popupTitle}>{isPersonal ? "Personal Information" : "Change Password"}</Text>
+          <View style={styles.popupClose} />
+        </View>
+
+        <ScrollView contentContainerStyle={styles.popupContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <Text style={styles.popupIntro}>{isPersonal ? "Update the contact details saved to your client profile." : "Enter your old password and choose a new secure password."}</Text>
+          {formError ? <Text style={styles.formError}>{formError}</Text> : null}
+
+          {isPersonal ? (
+            <>
+              <ProfileField label="Full name" value={fullName} onChangeText={setFullName} autoComplete="name" />
+              <ProfileField label="Email" value={email} onChangeText={setEmail} autoComplete="email" keyboardType="email-address" autoCapitalize="none" />
+              <ProfileField label="Phone" value={phone} onChangeText={setPhone} autoComplete="tel" keyboardType="phone-pad" />
+              <ProfileField label="Address" value={address} onChangeText={setAddress} autoComplete="street-address" multiline />
+            </>
+          ) : (
+            <>
+              <ProfileField label="Old password" value={oldPassword} onChangeText={setOldPassword} secureTextEntry autoComplete="current-password" />
+              <ProfileField label="New password" value={newPassword} onChangeText={setNewPassword} secureTextEntry autoComplete="new-password" />
+              <ProfileField label="Confirm new password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry autoComplete="new-password" />
+            </>
+          )}
+
+          <TouchableOpacity style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} activeOpacity={0.86} disabled={isSaving} onPress={isPersonal ? handleSavePersonal : handleSavePassword}>
+            <Text style={styles.saveButtonText}>{isSaving ? "Saving..." : "Save changes"}</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+function ProfileField(props: { label: string; value: string; onChangeText: (value: string) => void; secureTextEntry?: boolean; autoComplete?: "name" | "email" | "tel" | "street-address" | "current-password" | "new-password"; keyboardType?: "default" | "email-address" | "phone-pad"; autoCapitalize?: "none" | "sentences" | "words" | "characters"; multiline?: boolean }) {
+  return (
+    <View style={styles.fieldWrap}>
+      <Text style={styles.fieldLabel}>{props.label}</Text>
+      <TextInput
+        style={[styles.fieldInput, props.multiline && styles.fieldInputMultiline]}
+        value={props.value}
+        onChangeText={props.onChangeText}
+        secureTextEntry={props.secureTextEntry}
+        autoComplete={props.autoComplete}
+        keyboardType={props.keyboardType}
+        autoCapitalize={props.autoCapitalize}
+        multiline={props.multiline}
+        placeholderTextColor="#9AA1BA"
+      />
+    </View>
   );
 }
 
@@ -315,4 +465,18 @@ const styles = StyleSheet.create({
     paddingVertical: 19,
   },
   logoutText: { color: "#EF2929", fontSize: 17, fontWeight: "800" },
+  popupContainer: { backgroundColor: "#F8F9FD", flex: 1 },
+  popupHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 18, paddingTop: 56, paddingBottom: 18 },
+  popupClose: { alignItems: "center", height: 44, justifyContent: "center", width: 44 },
+  popupTitle: { color: "#080D20", fontSize: 23, fontWeight: "800" },
+  popupContent: { padding: 22, paddingBottom: 44 },
+  popupIntro: { color: "#53608F", fontSize: 16, fontWeight: "600", lineHeight: 24, marginBottom: 18 },
+  formError: { backgroundColor: "#FFF0F0", borderColor: "#FFD8D8", borderRadius: 14, borderWidth: 1, color: "#C42121", fontWeight: "700", lineHeight: 21, marginBottom: 16, padding: 14 },
+  fieldWrap: { marginBottom: 16 },
+  fieldLabel: { color: "#10162C", fontSize: 15, fontWeight: "800", marginBottom: 8 },
+  fieldInput: { backgroundColor: "#FFF", borderColor: "#E0E5F2", borderRadius: 14, borderWidth: 1, color: "#10162C", fontSize: 16, fontWeight: "600", minHeight: 56, paddingHorizontal: 16 },
+  fieldInputMultiline: { minHeight: 104, paddingTop: 16, textAlignVertical: "top" },
+  saveButton: { alignItems: "center", backgroundColor: "#5B3DF5", borderRadius: 16, justifyContent: "center", marginTop: 10, paddingVertical: 18 },
+  saveButtonDisabled: { opacity: 0.65 },
+  saveButtonText: { color: "#FFF", fontSize: 17, fontWeight: "800" },
 });
