@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import * as Linking from "expo-linking";
 import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -11,13 +12,7 @@ import { fetchClientProfileData, type ClientProfile } from "@/lib/clientProfileD
 import { usePushNotifications } from "@/providers/PushNotificationsProvider";
 import { supabase } from "@/lib/supabase";
 
-type PetPreferenceDog = {
-  id: string;
-  name: string;
-  care_preferences: string | null;
-};
-
-type ProfilePopupMode = "personal" | "password" | "notifications" | "petPreferences";
+type ProfilePopupMode = "personal" | "password" | "notifications" | "contact";
 
 type ProfileItem = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -42,20 +37,9 @@ const profileSections: ProfileSection[] = [
     ],
   },
   {
-    title: "Preferences",
-    items: [
-      { icon: "paw-outline", title: "Pet Preferences", subtitle: "Set care preferences for your pets", popupMode: "petPreferences" },
-      { icon: "calendar-outline", title: "Booking Preferences", subtitle: "Set your booking and service preferences" },
-      { icon: "location-outline", title: "Address", subtitle: "Confirm your saved care address" },
-    ],
-  },
-  {
     title: "Support",
     items: [
-      { icon: "help-circle-outline", title: "Help Center", subtitle: "Find answers to common questions" },
-      { icon: "chatbox-ellipses-outline", title: "Contact Us", subtitle: "Get in touch with our support team" },
-      { icon: "shield-checkmark-outline", title: "Privacy Policy", subtitle: "Learn how we protect your data" },
-      { icon: "document-text-outline", title: "Terms of Service", subtitle: "Read our terms and conditions" },
+      { icon: "chatbox-ellipses-outline", title: "Contact Us", subtitle: "Get in touch by WhatsApp, phone, or email", popupMode: "contact" },
     ],
   },
 ];
@@ -314,8 +298,8 @@ function ProfilePopup({ mode, profile, onClose, onSaved }: { mode: ProfilePopupM
     return <NotificationSettingsPopup visible={Boolean(mode)} onClose={onClose} />;
   }
 
-  if (mode === "petPreferences") {
-    return <PetPreferencesPopup visible={Boolean(mode)} profile={profile} onClose={onClose} onSaved={onSaved} />;
+  if (mode === "contact") {
+    return <ContactSupportPopup visible={Boolean(mode)} profile={profile} onClose={onClose} />;
   }
 
   const isPersonal = mode === "personal";
@@ -372,13 +356,6 @@ const notificationSettings: ToggleSetting[] = [
   { key: "photos", title: "Photos & report cards", subtitle: "New gallery photos, updates, and visit summaries." },
   { key: "billing", title: "Payments & invoices", subtitle: "Receipts, invoices, and payment method notices." },
   { key: "marketing", title: "News & offers", subtitle: "Optional service announcements and promotions." },
-];
-
-const petPreferencePrompts = [
-  "Walking style, leash behavior, route preferences, and pace",
-  "Meals, treats, medication, and water instructions",
-  "Social comfort with other pets, people, children, and busy places",
-  "Home access, supplies, vet, emergency, and handling notes",
 ];
 
 function NotificationSettingsPopup({ visible, onClose }: { visible: boolean; onClose: () => void }) {
@@ -448,104 +425,64 @@ function NotificationSettingsPopup({ visible, onClose }: { visible: boolean; onC
   );
 }
 
-function PetPreferencesPopup({ visible, profile, onClose, onSaved }: { visible: boolean; profile: ClientProfile; onClose: () => void; onSaved: () => void }) {
-  const [dogs, setDogs] = useState<PetPreferenceDog[]>([]);
-  const [preferenceDrafts, setPreferenceDrafts] = useState<Record<string, string>>({});
-  const [isLoadingDogs, setIsLoadingDogs] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
+const supportPhone = process.env.EXPO_PUBLIC_BUSINESS_PHONE_NUMBER || process.env.EXPO_PUBLIC_BUSINESS_WHATSAPP_NUMBER || "353872473099";
+const supportPhoneDigits = supportPhone.replace(/[^+\d]/g, "");
+const supportWhatsappNumber = supportPhoneDigits.replace("+", "");
+const supportEmail = process.env.EXPO_PUBLIC_SUPPORT_EMAIL || "jeroen@jeroenandpaws.com";
 
-  useEffect(() => {
-    if (!visible) return;
+function ContactSupportPopup({ visible, profile, onClose }: { visible: boolean; profile: ClientProfile; onClose: () => void }) {
+  const message = `Hi Jeroen & Paws, this is ${profile.fullName}. I need help with my client account.`;
 
-    let isMounted = true;
-    setIsLoadingDogs(true);
-    setFormError(null);
-
-    const loadDogs = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("portal_dogs")
-          .select("id, name, care_preferences")
-          .eq("client_id", profile.clientId)
-          .order("created_at", { ascending: true });
-
-        if (!isMounted) return;
-        if (error) throw error;
-
-        const rows = (data ?? []) as PetPreferenceDog[];
-        setDogs(rows);
-        setPreferenceDrafts(Object.fromEntries(rows.map((dog) => [dog.id, dog.care_preferences?.trim() ?? ""])));
-      } catch (loadError) {
-        if (isMounted) setFormError(loadError instanceof Error ? loadError.message : "Unable to load pet preferences.");
-      } finally {
-        if (isMounted) setIsLoadingDogs(false);
-      }
-    };
-
-    loadDogs();
-
-    return () => { isMounted = false; };
-  }, [profile.clientId, visible]);
-
-  const updateDraft = (dogId: string, value: string) => {
-    setPreferenceDrafts((current) => ({ ...current, [dogId]: value }));
-  };
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    setFormError(null);
-
+  const openContactMethod = async (url: string, errorMessage: string) => {
     try {
-      for (const dog of dogs) {
-        const { error } = await supabase
-          .from("portal_dogs")
-          .update({ care_preferences: preferenceDrafts[dog.id]?.trim() || null })
-          .eq("id", dog.id)
-          .eq("client_id", profile.clientId);
-
-        if (error) throw error;
-      }
-
-      onSaved();
+      await Linking.openURL(url);
       onClose();
-      Alert.alert("Pet preferences saved", "Your care notes have been saved for your pets.");
-    } catch (saveError) {
-      setFormError(saveError instanceof Error ? saveError.message : "Unable to save pet preferences.");
-    } finally {
-      setIsSaving(false);
+    } catch {
+      Alert.alert("Contact option unavailable", errorMessage);
     }
   };
 
+  const openWhatsapp = () => {
+    openContactMethod(`whatsapp://send?phone=${supportWhatsappNumber}&text=${encodeURIComponent(message)}`, "WhatsApp is not installed on this device.");
+  };
+
+  const callSupport = () => {
+    openContactMethod(`tel:${supportPhoneDigits}`, "Phone calls are not available on this device.");
+  };
+
+  const emailSupport = () => {
+    openContactMethod(`mailto:${supportEmail}?subject=${encodeURIComponent("Client support request")}&body=${encodeURIComponent(message)}`, "Email is not configured on this device.");
+  };
+
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
-      <KeyboardAvoidingView style={styles.popupContainer} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <PopupHeader title="Pet Preferences" onClose={onClose} />
-        <ScrollView contentContainerStyle={styles.popupContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <View style={styles.petCard}>
-            <Text style={styles.petCardLabel}>Helpful details to include</Text>
-            {petPreferencePrompts.map((prompt) => <Text key={prompt} style={styles.petCardPrompt}>• {prompt}</Text>)}
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
+      <View style={styles.contactOverlay}>
+        <View style={styles.contactSheet}>
+          <PopupHeader title="Contact Us" onClose={onClose} />
+          <View style={styles.contactContent}>
+            <Text style={styles.popupIntro}>Choose how you would like to get in touch with the Jeroen & Paws support team.</Text>
+            <ContactOption icon="logo-whatsapp" title="WhatsApp" subtitle="Open the WhatsApp app" onPress={openWhatsapp} />
+            <ContactOption icon="call-outline" title="Call" subtitle={`+${supportWhatsappNumber}`} onPress={callSupport} />
+            <ContactOption icon="mail-outline" title="Email" subtitle={supportEmail} onPress={emailSupport} />
           </View>
-          {formError ? <Text style={styles.formError}>{formError}</Text> : null}
-          {isLoadingDogs ? <ActivityIndicator color="#5B3DF5" style={styles.preferencesLoader} /> : null}
-          {!isLoadingDogs && dogs.length === 0 ? <Text style={styles.helperText}>Add a pet first, then return here to write their care preferences.</Text> : null}
-          {dogs.map((dog) => (
-            <ProfileField
-              key={dog.id}
-              label={`${dog.name} preferences`}
-              value={preferenceDrafts[dog.id] ?? ""}
-              onChangeText={(value) => updateDraft(dog.id, value)}
-              multiline
-            />
-          ))}
-          {dogs.length ? (
-            <TouchableOpacity style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} activeOpacity={0.86} disabled={isSaving} onPress={handleSave}>
-              <Text style={styles.saveButtonText}>{isSaving ? "Saving..." : "Save pet preferences"}</Text>
-            </TouchableOpacity>
-          ) : null}
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </View>
+      </View>
     </Modal>
+  );
+}
+
+function ContactOption({ icon, title, subtitle, onPress }: { icon: keyof typeof Ionicons.glyphMap; title: string; subtitle: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={styles.contactOption} activeOpacity={0.84} onPress={onPress}>
+      <View style={styles.rowIconWrap}>
+        <Ionicons name={icon} size={27} color="#5B3DF5" />
+      </View>
+      <View style={styles.contactOptionCopy}>
+        <Text style={styles.rowTitle}>{title}</Text>
+        <Text style={styles.rowSubtitle}>{subtitle}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={22} color="#53608F" />
+    </TouchableOpacity>
   );
 }
 
@@ -728,10 +665,9 @@ const styles = StyleSheet.create({
   preferenceCopy: { flex: 1 },
   preferenceTitle: { color: "#10162C", fontSize: 16, fontWeight: "900", marginBottom: 5 },
   preferenceSubtitle: { color: "#53608F", fontSize: 14, fontWeight: "600", lineHeight: 20 },
-  petCard: { backgroundColor: "#F3EEFF", borderColor: "#E2DBFF", borderRadius: 18, borderWidth: 1, marginBottom: 2, padding: 18 },
-  petCardLabel: { color: "#6B5AE8", fontSize: 13, fontWeight: "900", marginBottom: 6, textTransform: "uppercase" },
-  petCardTitle: { color: "#10162C", fontSize: 20, fontWeight: "900" },
-  petCardPrompt: { color: "#53608F", fontSize: 14, fontWeight: "700", lineHeight: 21, marginTop: 4 },
-  preferencesLoader: { marginVertical: 18 },
-  helperText: { color: "#6C728C", fontSize: 14, fontWeight: "600", lineHeight: 21, marginTop: 16 },
+  contactOverlay: { backgroundColor: "rgba(8, 13, 32, 0.42)", flex: 1, justifyContent: "flex-end" },
+  contactSheet: { backgroundColor: "#F8F9FD", borderTopLeftRadius: 26, borderTopRightRadius: 26, overflow: "hidden", paddingBottom: 28 },
+  contactContent: { paddingHorizontal: 22, paddingBottom: 6 },
+  contactOption: { alignItems: "center", backgroundColor: "#FFF", borderColor: "#E0E5F2", borderRadius: 18, borderWidth: 1, flexDirection: "row", marginBottom: 12, minHeight: 82, padding: 16 },
+  contactOptionCopy: { flex: 1 }, 
 });
