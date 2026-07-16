@@ -491,10 +491,25 @@ function PaymentsPopup({ visible, profile, onClose }: { visible: boolean; profil
       return;
     }
 
+    const returnUrl = Linking.createURL("client/profile", {
+      queryParams: {
+        invoiceId: invoice.id,
+        payment: "revolut",
+        status: "complete",
+      },
+    });
+
     setOpeningInvoiceId(invoice.id);
     try {
-      await WebBrowser.openBrowserAsync(invoice.payment_url, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.FORM_SHEET });
+      const result = await WebBrowser.openAuthSessionAsync(invoice.payment_url, returnUrl, {
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FORM_SHEET,
+      });
+
       await loadPayments();
+
+      if (result.type === "success") {
+        Alert.alert("Payment check complete", "Welcome back. We are refreshing your invoice status now.");
+      }
     } catch {
       Alert.alert("Unable to open Revolut", "Please try again or contact us if the payment link keeps failing.");
     } finally {
@@ -511,7 +526,7 @@ function PaymentsPopup({ visible, profile, onClose }: { visible: boolean; profil
       <View style={styles.popupContainer}>
         <PopupHeader title="Payments & Invoices" onClose={onClose} />
         <ScrollView contentContainerStyle={styles.popupContent} showsVerticalScrollIndicator={false}>
-          <Text style={styles.popupIntro}>Pay securely with Revolut. We will refresh your invoices after checkout, and paid status is confirmed through our payment system.</Text>
+          <Text style={styles.popupIntro}>Pay securely with Revolut. After checkout, Revolut can return you to the app and we will refresh your invoices while paid status is confirmed through our payment system.</Text>
 
           {isLoadingPayments ? <PaymentLoadingState /> : null}
           {paymentError ? <PaymentErrorState error={paymentError} onRetry={loadPayments} /> : null}

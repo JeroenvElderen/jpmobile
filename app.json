@@ -7,9 +7,16 @@
     "icon": "./assets/images/logo4.png",
     "scheme": "jeroenandpawsmobile",
     "userInterfaceStyle": "automatic",
+
     "ios": {
-      "icon": "./assets/images/logo4.svg"
+      "icon": "./assets/images/logo4.svg",
+      "bundleIdentifier": "com.jer0m3.jeroenandpawsmobile",
+      "associatedDomains": [
+        "applinks:jeroenandpaws.com",
+        "applinks:www.jeroenandpaws.com"
+      ]
     },
+
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#4B22C8",
@@ -19,12 +26,47 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.jer0m3.jeroenandpawsmobile",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ],
+          "data": [
+            {
+              "scheme": "https",
+              "host": "jeroenandpaws.com",
+              "pathPrefix": "/payment"
+            },
+            {
+              "scheme": "https",
+              "host": "www.jeroenandpaws.com",
+              "pathPrefix": "/payment"
+            },
+            {
+              "scheme": "https",
+              "host": "jeroenandpaws.com",
+              "pathPrefix": "/portal"
+            },
+            {
+              "scheme": "https",
+              "host": "www.jeroenandpaws.com",
+              "pathPrefix": "/portal"
+            }
+          ]
+        }
+      ]
     },
+
     "web": {
       "output": "static",
       "favicon": "./assets/images/logo4.png"
     },
+
     "plugins": [
       "expo-router",
       [
@@ -44,16 +86,19 @@
         }
       ]
     ],
+
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
     },
+
     "extra": {
       "router": {},
       "eas": {
         "projectId": "e487e7cb-0301-445f-a211-4972dd5274a3"
       }
     },
+
     "owner": "jeroen-and-paws"
   }
 }
