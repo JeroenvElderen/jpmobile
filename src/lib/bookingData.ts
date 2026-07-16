@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 
+import { sendAdminPushNotification } from "@/lib/pushTokens";
 import { supabase } from "@/lib/supabase";
 
 export type BookingStatus = "Confirmed" | "Pending" | "Cancelled";
@@ -89,6 +90,13 @@ export async function cancelClientBooking(bookingId: string) {
     .eq("id", bookingId);
 
   if (error) throw error;
+
+await sendAdminPushNotification({
+    title: "Booking cancelled",
+    body: "A client cancelled a booking and it needs review.",
+    url: "/admin?tab=bookings",
+    type: "booking_cancelled",
+  });
 }
 
 export async function rescheduleClientBooking({ bookingId, startsAt, endsAt }: { bookingId: string; startsAt: string; endsAt?: string }) {
@@ -98,6 +106,13 @@ export async function rescheduleClientBooking({ bookingId, startsAt, endsAt }: {
     .eq("id", bookingId);
 
   if (error) throw error;
+
+  await sendAdminPushNotification({
+    title: "Reschedule requested",
+    body: "A client requested a booking time change.",
+    url: "/admin?tab=bookings",
+    type: "booking_reschedule_requested",
+  });
 }
 
 export async function fetchClientBookingsData(): Promise<BookingsData> {

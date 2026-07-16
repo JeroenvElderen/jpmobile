@@ -8,6 +8,7 @@ import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Tex
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { isClientAccountComplete } from "@/lib/accountSetup";
+import { sendAdminPushNotification } from "@/lib/pushTokens";
 import { supabase } from "@/lib/supabase";
 
 type RouteKey = "home" | "bookings" | "pets" | "activity" | "profile" | "galleries";
@@ -47,7 +48,7 @@ export default function ClientFloatingTabBar({ activeRoute = "home" }: Props) {
       cancelled = true;
     };
   }, [router]);
-  
+
   const navigate = (href: Parameters<typeof router.replace>[0]) => {
     setIsMoreOpen(false);
     setQuickAction(null);
@@ -299,6 +300,13 @@ async function createBookingRequests({ clientId, dogIds, selectedDogNames, servi
 
   const { error } = await supabase.from("portal_bookings").insert(bookingRows);
   if (error) throw error;
+
+  await sendAdminPushNotification({
+    title: "New booking request",
+    body: `${selectedDogNames.join(", ")} requested ${slots.length} ${service.toLowerCase()} booking${slots.length === 1 ? "" : "s"}.`,
+    url: "/admin?tab=bookings",
+    type: "booking_requested",
+  });
 }
 
 function parseRequestedStart(slot: BookingSlot) {

@@ -3,6 +3,7 @@ import { Href, router } from "expo-router";
 import { createContext, type PropsWithChildren, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 import { registerForPushNotificationsAsync, scheduleTestNotificationAsync, type PushRegistrationResult } from "@/lib/notifications";
+import { registerExpoPushToken } from "@/lib/pushTokens";
 
 type PushNotificationsContextValue = {
   expoPushToken: string | null;
@@ -28,6 +29,10 @@ export function PushNotificationsProvider({ children }: PropsWithChildren) {
       const result = await registerForPushNotificationsAsync();
       setExpoPushToken(result.expoPushToken);
       setLastRegistrationStatus(result.status);
+
+      if (result.expoPushToken) {
+        await registerExpoPushToken(result.expoPushToken);
+      }
       return result;
     } finally {
       setIsRegistering(false);
@@ -46,7 +51,7 @@ export function PushNotificationsProvider({ children }: PropsWithChildren) {
 
       if (typeof url === "string") {
         router.push(url as Href);
-        }
+      }
     });
 
     const lastResponse = Notifications.getLastNotificationResponse();
@@ -54,7 +59,7 @@ export function PushNotificationsProvider({ children }: PropsWithChildren) {
 
     if (typeof initialUrl === "string") {
         router.push(initialUrl as Href);
-        }
+    }
 
     return () => {
       receivedSubscription.remove();

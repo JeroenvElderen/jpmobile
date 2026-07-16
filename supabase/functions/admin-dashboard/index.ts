@@ -311,7 +311,7 @@ async function createBookingRecord(supabase: ReturnType<typeof createClient>, in
   const dogIds = normalizeDogIds(input);
   const location = input.location?.trim() || (await fetchClientAddress(supabase, clientId));
 
-  const { error } = await supabase.from("portal_bookings").insert({
+const booking = {
     client_id: clientId,
     dog_id: dogIds[0],
     dog_ids: dogIds,
@@ -324,8 +324,11 @@ async function createBookingRecord(supabase: ReturnType<typeof createClient>, in
     status: "pending",
     source: "admin_import",
     sync_status: "pending",
-  });
+  };
+
+  const { error } = await supabase.from("portal_bookings").insert(booking);
   if (error) throw error;
+  await notifyClient(supabase, clientId, "New booking added", `${booking.service_name} was added to your schedule.`, "/client?tab=bookings", "booking_created");
 }
 
 async function updateBookingRecord(supabase: ReturnType<typeof createClient>, input: { bookingId: string; clientId?: string; dogId?: string; dogIds?: string[]; serviceName?: string; startsAt?: string; location?: string; notes?: string; status?: string }) {
@@ -349,8 +352,13 @@ async function updateBookingRecord(supabase: ReturnType<typeof createClient>, in
   if (input.status?.trim()) update.status = normalizeBookingStatus(input.status);
   if (!Object.keys(update).length) return;
 
-  const { error } = await supabase.from("portal_bookings").update(update).eq("id", required(input.bookingId, "Booking ID"));
+  const bookingId = required(input.bookingId, "Booking ID");
+  const { data: bookingBefore, error: bookingBeforeError } = await supabase.from("portal_bookings").select("client_id").eq("id", bookingId).maybeSingle<{ client_id: string | null }>();
+  if (bookingBeforeError) throw bookingBeforeError;
+  const { error } = await supabase.from("portal_bookings").update(update).eq("id", bookingId);
   if (error) throw error;
+  const clientId = typeof update.client_id === "string" ? update.client_id : bookingBefore?.client_id;
+  if (clientId) await notifyClient(supabase, clientId, "Booking updated", "A booking on your schedule was updated.", "/client?tab=bookings", "booking_updated");
 }
 
 async function deleteBookingRecord(supabase: ReturnType<typeof createClient>, bookingId: string) {
@@ -365,8 +373,15 @@ async function setBookingStatus(supabase: ReturnType<typeof createClient>, booki
   };
   if (status === "confirmed") update.sync_status = "pending";
 
-  const { error } = await supabase.from("portal_bookings").update(update).eq("id", required(bookingId, "Booking ID"));
+  const id = required(bookingId, "Booking ID");
+  const { data: booking, error: bookingError } = await supabase.from("portal_bookings").select("client_id").eq("id", id).maybeSingle<{ client_id: string | null }>();
+  if (bookingError) throw bookingError;
+  const { error } = await supabase.from("portal_bookings").update(update).eq("id", id);
   if (error) throw error;
+  if (booking?.client_id) {
+    const title = status === "confirmed" ? "Booking confirmed" : status === "cancelled" ? "Booking cancelled" : "Booking status updated";
+    await notifyClient(supabase, booking.client_id, title, "Your booking status changed.", "/client?tab=bookings", "booking_status");
+  }
 }
 
 async function rescheduleBooking(supabase: ReturnType<typeof createClient>, input: { bookingId: string; startsAt: string }) {
@@ -530,4 +545,26 @@ function getErrorMessage(error: unknown) {
   }
   if (typeof error === "string" && error.trim()) return error;
   return "Admin dashboard failed.";
+}
+
+async function notifyClient(supabase: ReturnType<typeof createClient>, clientId: string, title: string, body: string, url: string, type: string) {
+  const { data: client, error: clientError } = await supabase.from("portal_clients").select("auth_user_id").eq("id", clientId).maybeSingle<{ auth_user_id: string | null }>();
+  if (clientError) throw clientError;
+  if (!client?.auth_user_id) return;
+
+  const { data: tokens, error: tokensError } = await supabase.from("portal_push_tokens").select("expo_push_token").eq("auth_user_id", client.auth_user_id);
+  if (tokensError) throw tokensError;
+  await sendExpoNotifications((tokens ?? []).map((token) => token.expo_push_token), { title, body, url, type });
+}
+
+async function sendExpoNotifications(tokens: string[], input: { title: string; body: string; url: string; type: string }) {
+  const uniqueTokens = Array.from(new Set(tokens.filter((token) => /^ExponentPushToken\[.+\]$|^ExpoPushToken\[.+\]$/.test(token))));
+  if (!uniqueTokens.length) return;
+
+  const response = await fetch("https://exp.host/--/api/v2/push/send", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(uniqueTokens.map((to) => ({ to, sound: "default", title: input.title, body: input.body, data: { url: input.url, type: input.type } }))),
+  });
+  if (!response.ok) throw new Error("Expo push service rejected the notification.");
 }
