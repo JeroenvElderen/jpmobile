@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as Linking from "expo-linking";
 import * as Notifications from "expo-notifications";
+import * as WebBrowser from "expo-web-browser";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -12,7 +13,7 @@ import { fetchClientProfileData, type ClientProfile } from "@/lib/clientProfileD
 import { usePushNotifications } from "@/providers/PushNotificationsProvider";
 import { supabase } from "@/lib/supabase";
 
-type ProfilePopupMode = "personal" | "password" | "notifications" | "contact";
+type ProfilePopupMode = "personal" | "password" | "notifications" | "payments" | "contact";
 
 type ProfileItem = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -33,7 +34,7 @@ const profileSections: ProfileSection[] = [
       { icon: "person-outline", title: "Personal Information", subtitle: "Review your saved contact details", popupMode: "personal" },
       { icon: "lock-closed-outline", title: "Change Password", subtitle: "Update your password", popupMode: "password" },
       { icon: "notifications-outline", title: "Notifications", subtitle: "Manage every notification setting", popupMode: "notifications" },
-      { icon: "card-outline", title: "Payment Methods", subtitle: "Manage your saved payment methods" },
+      { icon: "card-outline", title: "Payments & Invoices", subtitle: "Pay securely with Revolut", popupMode: "payments" },
     ],
   },
   {
@@ -83,6 +84,7 @@ export default function ClientProfileScreen() {
       .on("postgres_changes", { event: "*", schema: "public", table: "portal_clients", filter: `id=eq.${profile.clientId}` }, refreshProfile)
       .on("postgres_changes", { event: "*", schema: "public", table: "portal_dogs", filter: `client_id=eq.${profile.clientId}` }, refreshProfile)
       .on("postgres_changes", { event: "*", schema: "public", table: "portal_client_activity", filter: `client_id=eq.${profile.clientId}` }, refreshProfile)
+      .on("postgres_changes", { event: "*", schema: "public", table: "portal_invoices", filter: `portal_client_id=eq.${profile.clientId}` }, refreshProfile)
       .subscribe();
 
     return () => {
@@ -298,6 +300,10 @@ function ProfilePopup({ mode, profile, onClose, onSaved }: { mode: ProfilePopupM
     return <NotificationSettingsPopup visible={Boolean(mode)} onClose={onClose} />;
   }
 
+  if (mode === "payments") {
+    return <PaymentsPopup visible={Boolean(mode)} profile={profile} onClose={onClose} />;
+  }
+
   if (mode === "contact") {
     return <ContactSupportPopup visible={Boolean(mode)} profile={profile} onClose={onClose} />;
   }
@@ -423,6 +429,198 @@ function NotificationSettingsPopup({ visible, onClose }: { visible: boolean; onC
       </View>
     </Modal>
   );
+}
+
+type ClientInvoice = {
+  id: string;
+  invoice_number: string;
+  payment_title: string | null;
+  amount_cents: number;
+  currency: string;
+  status: "draft" | "sent" | "pending" | "paid" | "overdue" | "refunded" | string;
+  due_on: string | null;
+  issued_on: string | null;
+  payment_url: string | null;
+  paid_on: string | null;
+};
+
+function PaymentsPopup({ visible, profile, onClose }: { visible: boolean; profile: ClientProfile; onClose: () => void }) {
+  const [invoices, setInvoices] = useState<ClientInvoice[]>([]);
+  const [isLoadingPayments, setIsLoadingPayments] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [openingInvoiceId, setOpeningInvoiceId] = useState<string | null>(null);
+
+  const loadPayments = useCallback(async () => {
+    setIsLoadingPayments(true);
+    setPaymentError(null);
+
+    const { data, error } = await supabase
+      .from("portal_invoices")
+      .select("id, invoice_number, payment_title, amount_cents, currency, status, due_on, issued_on, payment_url, paid_on")
+      .eq("portal_client_id", profile.clientId)
+      .order("issued_on", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      setPaymentError(error.message);
+      setInvoices([]);
+    } else {
+      setInvoices((data ?? []) as ClientInvoice[]);
+    }
+
+    setIsLoadingPayments(false);
+  }, [profile.clientId]);
+
+  useEffect(() => {
+    if (!visible) return undefined;
+
+    loadPayments();
+    const channel = supabase
+      .channel(`client-payments-${profile.clientId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "portal_invoices", filter: `portal_client_id=eq.${profile.clientId}` }, () => loadPayments())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [visible, profile.clientId, loadPayments]);
+
+  const openPayment = async (invoice: ClientInvoice) => {
+    if (!invoice.payment_url) {
+      Alert.alert("Payment link unavailable", "This invoice does not have a Revolut payment link yet. Please contact us and we will resend it.");
+      return;
+    }
+
+    setOpeningInvoiceId(invoice.id);
+    try {
+      await WebBrowser.openBrowserAsync(invoice.payment_url, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.FORM_SHEET });
+      await loadPayments();
+    } catch {
+      Alert.alert("Unable to open Revolut", "Please try again or contact us if the payment link keeps failing.");
+    } finally {
+      setOpeningInvoiceId(null);
+    }
+  };
+
+  const openInvoices = invoices.filter((invoice) => ["sent", "pending", "overdue"].includes(invoice.status));
+  const paidInvoices = invoices.filter((invoice) => invoice.status === "paid");
+  const otherInvoices = invoices.filter((invoice) => !openInvoices.includes(invoice) && !paidInvoices.includes(invoice));
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
+      <View style={styles.popupContainer}>
+        <PopupHeader title="Payments & Invoices" onClose={onClose} />
+        <ScrollView contentContainerStyle={styles.popupContent} showsVerticalScrollIndicator={false}>
+          <Text style={styles.popupIntro}>Pay securely with Revolut. We will refresh your invoices after checkout, and paid status is confirmed through our payment system.</Text>
+
+          {isLoadingPayments ? <PaymentLoadingState /> : null}
+          {paymentError ? <PaymentErrorState error={paymentError} onRetry={loadPayments} /> : null}
+          {!isLoadingPayments && !paymentError && invoices.length === 0 ? <PaymentEmptyState /> : null}
+
+          {!isLoadingPayments && !paymentError && openInvoices.length > 0 ? (
+            <InvoiceSection title="Open payments" invoices={openInvoices} openingInvoiceId={openingInvoiceId} onPay={openPayment} />
+          ) : null}
+
+          {!isLoadingPayments && !paymentError && paidInvoices.length > 0 ? (
+            <InvoiceSection title="Paid" invoices={paidInvoices} openingInvoiceId={openingInvoiceId} onPay={openPayment} />
+          ) : null}
+
+          {!isLoadingPayments && !paymentError && otherInvoices.length > 0 ? (
+            <InvoiceSection title="Other invoices" invoices={otherInvoices} openingInvoiceId={openingInvoiceId} onPay={openPayment} />
+          ) : null}
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+function InvoiceSection({ title, invoices, openingInvoiceId, onPay }: { title: string; invoices: ClientInvoice[]; openingInvoiceId: string | null; onPay: (invoice: ClientInvoice) => void }) {
+  return (
+    <View style={styles.invoiceSection}>
+      <Text style={styles.invoiceSectionTitle}>{title}</Text>
+      {invoices.map((invoice) => (
+        <InvoiceCard key={invoice.id} invoice={invoice} isOpening={openingInvoiceId === invoice.id} onPay={() => onPay(invoice)} />
+      ))}
+    </View>
+  );
+}
+
+function InvoiceCard({ invoice, isOpening, onPay }: { invoice: ClientInvoice; isOpening: boolean; onPay: () => void }) {
+  const canPay = ["sent", "pending", "overdue"].includes(invoice.status);
+  const isPaid = invoice.status === "paid";
+
+  return (
+    <View style={styles.invoiceCard}>
+      <View style={styles.invoiceHeader}>
+        <View style={styles.invoiceTitleWrap}>
+          <Text style={styles.invoiceTitle}>{invoice.payment_title?.trim() || `Invoice ${invoice.invoice_number}`}</Text>
+          <Text style={styles.invoiceSubtitle}>#{invoice.invoice_number}</Text>
+        </View>
+        <View style={[styles.statusPill, isPaid ? styles.statusPillPaid : invoice.status === "overdue" ? styles.statusPillOverdue : styles.statusPillPending]}>
+          <Text style={[styles.statusPillText, isPaid ? styles.statusPillTextPaid : invoice.status === "overdue" ? styles.statusPillTextOverdue : styles.statusPillTextPending]}>{formatInvoiceStatus(invoice.status)}</Text>
+        </View>
+      </View>
+
+      <View style={styles.invoiceMetaRow}>
+        <Text style={styles.invoiceAmount}>{formatInvoiceAmount(invoice.amount_cents, invoice.currency)}</Text>
+        <Text style={styles.invoiceDate}>{isPaid ? formatInvoiceDate("Paid", invoice.paid_on) : formatInvoiceDate("Due", invoice.due_on)}</Text>
+      </View>
+
+      {canPay ? (
+        <TouchableOpacity style={[styles.payButton, isOpening && styles.saveButtonDisabled]} activeOpacity={0.86} disabled={isOpening} onPress={onPay}>
+          <Ionicons name="card-outline" size={20} color="#FFF" />
+          <Text style={styles.payButtonText}>{isOpening ? "Opening Revolut..." : "Pay securely with Revolut"}</Text>
+        </TouchableOpacity>
+      ) : (
+        <Text style={styles.invoiceNote}>{isPaid ? "Payment received. Thank you!" : "This invoice is not currently payable in the app."}</Text>
+      )}
+    </View>
+  );
+}
+
+function PaymentLoadingState() {
+  return (
+    <View style={styles.paymentStateCard}>
+      <ActivityIndicator color="#5B3DF5" />
+      <Text style={styles.statusText}>Loading your payment links...</Text>
+    </View>
+  );
+}
+
+function PaymentErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
+  return (
+    <View style={styles.paymentStateCard}>
+      <Text style={styles.formError}>{error}</Text>
+      <TouchableOpacity style={styles.secondaryButton} activeOpacity={0.86} onPress={onRetry}>
+        <Text style={styles.secondaryButtonText}>Try again</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function PaymentEmptyState() {
+  return (
+    <View style={styles.paymentStateCard}>
+      <Ionicons name="receipt-outline" size={32} color="#5B3DF5" />
+      <Text style={styles.statusTitle}>No payment links yet</Text>
+      <Text style={styles.statusText}>Any Revolut payment links for your invoices will appear here.</Text>
+    </View>
+  );
+}
+
+function formatInvoiceAmount(amountCents: number, currency: string) {
+  return new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "EUR" }).format((amountCents || 0) / 100);
+}
+
+function formatInvoiceDate(label: string, value: string | null) {
+  if (!value) return `${label} date pending`;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return `${label} date pending`;
+  return `${label} ${date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}`;
+}
+
+function formatInvoiceStatus(status: string) {
+  return status.replace(/_/g, " ").replace(/^./, (char) => char.toUpperCase());
 }
 
 const supportPhone = process.env.EXPO_PUBLIC_BUSINESS_PHONE_NUMBER || process.env.EXPO_PUBLIC_BUSINESS_WHATSAPP_NUMBER || "353872473099";
@@ -659,6 +857,28 @@ const styles = StyleSheet.create({
   statusCopy: { flex: 1 },
   statusTitle: { color: "#10162C", fontSize: 16, fontWeight: "900", marginBottom: 5 },
   statusText: { color: "#53608F", fontSize: 14, fontWeight: "600", lineHeight: 20 },
+  invoiceSection: { marginBottom: 22 },
+  invoiceSectionTitle: { color: "#10162C", fontSize: 18, fontWeight: "900", marginBottom: 12 },
+  invoiceCard: { backgroundColor: "#FFF", borderColor: "#E0E5F2", borderRadius: 18, borderWidth: 1, marginBottom: 14, padding: 16 },
+  invoiceHeader: { alignItems: "flex-start", flexDirection: "row", gap: 12, justifyContent: "space-between", marginBottom: 14 },
+  invoiceTitleWrap: { flex: 1 },
+  invoiceTitle: { color: "#10162C", fontSize: 17, fontWeight: "900", lineHeight: 23, marginBottom: 4 },
+  invoiceSubtitle: { color: "#53608F", fontSize: 14, fontWeight: "700" },
+  statusPill: { borderRadius: 999, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 6 },
+  statusPillPaid: { backgroundColor: "#EFFFF5", borderColor: "#BFE9CD" },
+  statusPillOverdue: { backgroundColor: "#FFF0F0", borderColor: "#FFD0D0" },
+  statusPillPending: { backgroundColor: "#FFF8E9", borderColor: "#F2D9A6" },
+  statusPillText: { fontSize: 12, fontWeight: "900" },
+  statusPillTextPaid: { color: "#188C45" },
+  statusPillTextOverdue: { color: "#C42121" },
+  statusPillTextPending: { color: "#A06B00" },
+  invoiceMetaRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: 14 },
+  invoiceAmount: { color: "#080D20", fontSize: 24, fontWeight: "900" },
+  invoiceDate: { color: "#53608F", fontSize: 14, fontWeight: "700" },
+  payButton: { alignItems: "center", backgroundColor: "#5B3DF5", borderRadius: 16, flexDirection: "row", gap: 9, justifyContent: "center", paddingVertical: 16 },
+  payButtonText: { color: "#FFF", fontSize: 16, fontWeight: "900" },
+  invoiceNote: { color: "#53608F", fontSize: 14, fontWeight: "700", lineHeight: 20 },
+  paymentStateCard: { alignItems: "center", backgroundColor: "#FFF", borderColor: "#E0E5F2", borderRadius: 18, borderWidth: 1, gap: 10, marginBottom: 18, padding: 18 },
   preferenceCard: { backgroundColor: "#FFF", borderColor: "#E0E5F2", borderRadius: 18, borderWidth: 1, marginTop: 18, overflow: "hidden" },
   preferenceRow: { alignItems: "center", flexDirection: "row", gap: 14, minHeight: 90, paddingHorizontal: 16, paddingVertical: 14 },
   preferenceDivider: { borderBottomColor: "#E8ECF5", borderBottomWidth: 1 },
