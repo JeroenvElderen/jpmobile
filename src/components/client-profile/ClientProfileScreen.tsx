@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
@@ -52,7 +53,9 @@ export default function ClientProfileScreen() {
   const [profile, setProfile] = useState<ClientProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const router = useRouter();
   const { expoPushToken, isRegistering, lastRegistrationStatus, registerForPushNotifications, scheduleTestNotification } = usePushNotifications();
 
   const loadProfile = useCallback(async ({ showLoading = true }: { showLoading?: boolean } = {}) => {
@@ -129,6 +132,23 @@ export default function ClientProfileScreen() {
     }
   }, [scheduleTestNotification]);
 
+  const handleLogout = useCallback(async () => {
+    if (isLoggingOut) return;
+
+    setIsLoggingOut(true);
+
+    const { error: signOutError } = await supabase.auth.signOut();
+
+    if (signOutError) {
+      setIsLoggingOut(false);
+      Alert.alert("Logout failed", signOutError.message);
+      return;
+    }
+
+    setProfile(null);
+    router.replace("/(auth)/login");
+  }, [isLoggingOut, router]);
+
   if (isLoading) {
     return <CenteredState message="Loading your profile..." />;
   }
@@ -161,9 +181,9 @@ export default function ClientProfileScreen() {
           </View>
         ))}
 
-        <TouchableOpacity style={styles.logoutButton} activeOpacity={0.85} onPress={() => supabase.auth.signOut()}>
+        <TouchableOpacity style={styles.logoutButton} activeOpacity={0.85} disabled={isLoggingOut} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={21} color="#EF2929" />
-          <Text style={styles.logoutText}>Log Out</Text>
+          <Text style={styles.logoutText}>{isLoggingOut ? "Logging out..." : "Log Out"}</Text>
         </TouchableOpacity>
       </ScrollView>
 
