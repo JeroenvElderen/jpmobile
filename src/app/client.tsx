@@ -16,6 +16,7 @@ export default function ClientScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const realtimeSubscriptionIdRef = useRef(0);
 
   const loadDashboard = useCallback(async ({ showLoading = true }: { showLoading?: boolean } = {}) => {
     if (showLoading) {
@@ -55,8 +56,11 @@ export default function ClientScreen() {
       }, 300);
     };
 
+    const subscriptionId = realtimeSubscriptionIdRef.current + 1;
+    realtimeSubscriptionIdRef.current = subscriptionId;
+
     const channel = supabase
-      .channel(`client-dashboard-${dashboardData.clientId}`)
+      .channel(`client-dashboard-${dashboardData.clientId}-${subscriptionId}`)
       .on(
         "postgres_changes",
         {

@@ -16,6 +16,8 @@ type PushNotificationsContextValue = {
 
 const PushNotificationsContext = createContext<PushNotificationsContextValue | null>(null);
 
+let pendingPushRegistration: Promise<PushRegistrationResult> | null = null;
+
 export function PushNotificationsProvider({ children }: PropsWithChildren) {
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
@@ -23,20 +25,30 @@ export function PushNotificationsProvider({ children }: PropsWithChildren) {
   const [lastNotification, setLastNotification] = useState<Notifications.Notification | null>(null);
 
   const registerForPushNotifications = useCallback(async () => {
+    if (pendingPushRegistration) {
+      return pendingPushRegistration;
+    }
+
     setIsRegistering(true);
 
-    try {
-      const result = await registerForPushNotificationsAsync();
-      setExpoPushToken(result.expoPushToken);
-      setLastRegistrationStatus(result.status);
+    pendingPushRegistration = (async () => {
+      try {
+        const result = await registerForPushNotificationsAsync();
+        setExpoPushToken(result.expoPushToken);
+        setLastRegistrationStatus(result.status);
 
-      if (result.expoPushToken) {
-        await registerExpoPushToken(result.expoPushToken);
+        if (result.expoPushToken) {
+          await registerExpoPushToken(result.expoPushToken);
+        }
+
+        return result;
+      } finally {
+        setIsRegistering(false);
+        pendingPushRegistration = null;
       }
-      return result;
-    } finally {
-      setIsRegistering(false);
-    }
+    })();
+
+    return pendingPushRegistration;
   }, []);
 
   useEffect(() => {
