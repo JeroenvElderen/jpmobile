@@ -1,5 +1,29 @@
 # Welcome to your Expo app 👋
 
+## Authentication configuration
+
+Set these public build-time variables in local `.env` and in EAS (never use a Supabase service-role key):
+
+```sh
+EXPO_PUBLIC_API_BASE_URL=https://jeroenandpaws.com
+EXPO_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=YOUR_PUBLIC_ANON_KEY
+```
+
+Add these Authentication redirect URLs to the Supabase project's allow-list:
+
+- Production/dev build: `jeroenandpaws://auth/confirm`
+- Expo Go development: the exact URL printed by `Linking.createURL('auth/confirm')` for the active Expo host (for example `exp://192.168.1.10:8081/--/auth/confirm`). Because the host changes, prefer a development build with the stable custom scheme for backend testing.
+
+Invite links can use either `jeroenandpaws://register?invite=CODE` or the install-aware HTTPS form `https://jeroenandpaws.com/register?invite=CODE` (the `www` host is supported too). The app opens registration and pre-fills—but never submits—the invite. Rebuild native apps after changing linking configuration.
+
+For HTTPS invite links to open an installed app, the website must serve valid platform association files:
+
+- `https://jeroenandpaws.com/.well-known/apple-app-site-association` (and the `www` host) with app ID `TEAM_ID.com.jer0m3.jeroenandpawsmobile` and `/register*` allowed.
+- `https://jeroenandpaws.com/.well-known/assetlinks.json` (and the `www` host) with Android package `com.jer0m3.jeroenandpawsmobile`, relation `delegate_permission/common.handle_all_urls`, and the production signing-certificate SHA-256 fingerprint.
+
+These files must return HTTPS `200` responses without redirects and with JSON content types. If the app is not installed, the same HTTPS invite URL continues to the website. Email and SMS delivery require the website backend, Supabase redirect allow-list, and provider configuration and cannot be verified by local unit tests.
+
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
 ## Get started

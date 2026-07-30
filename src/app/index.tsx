@@ -3,10 +3,9 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { getAccountSetupRouteForUser } from "@/lib/accountSetup";
+import { isAdminUser } from "@/lib/authRouting";
 import { supabase } from "@/lib/supabase";
 import { theme } from "@/lib/theme";
-
-const ADMIN_EMAIL = "jeroen@jeroenandpaws.com";
 
 type InitialRoute = "/(auth)/login" | "/admin" | "/client" | "/complete-account";
 
@@ -26,9 +25,7 @@ export default function Index() {
         return;
       }
 
-      const email = data.user.email?.trim().toLowerCase();
-
-      if (email === ADMIN_EMAIL) {
+      if (isAdminUser(data.user)) {
         setInitialRoute("/admin");
         return;
       }
