@@ -1,188 +1,40 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Link, useRouter } from 'expo-router';
-import type { ComponentProps } from 'react';
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Link, useLocalSearchParams } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { BrandLogo, COMPANY_NAME } from '@/components/BrandLogo';
-import { getAccountSetupRouteForUser } from '@/lib/accountSetup';
-import { supabase } from '@/lib/supabase';
-import { theme } from '@/lib/theme';
-import { Divider } from '@/components/ui';
-
-const ADMIN_EMAIL = 'jeroen@jeroenandpaws.com'.toLowerCase();
+import { BrandLogo } from '@/components/BrandLogo';
+import { useAuth } from '@/hooks/useAuth';
+import { isEmailIdentifier, isValidPhone } from '@/lib/authValidation';
 
 export default function LoginScreen() {
-  const router = useRouter();
-  const [email, setEmail] = useState('');
+  const params = useLocalSearchParams<{ identifier?: string; message?: string }>();
+  const { signIn } = useAuth();
+  const [identifier, setIdentifier] = useState(params.identifier ?? '');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string | undefined>();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleLogin = async () => {
-    const normalizedEmail = email.trim();
-
-    if (!normalizedEmail || !password) {
-      setError('Enter your email and password to log in.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    setError(undefined);
-
-    const { data, error: signInError } = await supabase.auth.signInWithPassword({
-      email: normalizedEmail,
-      password,
-    });
-
-    setIsSubmitting(false);
-
-    if (signInError) {
-      setError(signInError.message);
-      return;
-    }
-
-    const authenticatedEmail = data.user?.email?.toLowerCase() ?? normalizedEmail.toLowerCase();
-
-    if (authenticatedEmail === ADMIN_EMAIL) {
-      router.replace('/admin');
-      return;
-    }
-
-    try {
-      router.replace(await getAccountSetupRouteForUser(data.user));
-    } catch (routeError) {
-      setError(routeError instanceof Error ? routeError.message : 'Unable to load your account.');
-    }
-  };
-
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <DecorativeBubble />
-
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <View style={styles.brand}>
-              <BrandLogo />
-              <Text style={styles.padding} />
-              <Text style={styles.title}>Welcome back <Text style={styles.heart}>♡</Text></Text>
-              <Text style={styles.brandSubtitle}>Personal pet care, happy life. <Text style={styles.heart}>♡</Text></Text>
-            </View>
-          </View>
-
-          <View style={styles.form}>
-            <AuthField
-              icon="mail-outline"
-              label="Email address"
-              placeholder="Enter your email"
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              textContentType="emailAddress"
-              value={email}
-              onChangeText={setEmail}
-            />
-            <AuthField
-              icon="lock-closed-outline"
-              label="Password"
-              placeholder="Enter your password"
-              secureTextEntry={!showPassword}
-              textContentType="password"
-              value={password}
-              onChangeText={setPassword}
-              onSubmitEditing={handleLogin}
-              rightIcon={showPassword ? 'eye-outline' : 'eye-off-outline'}
-              onPressRightIcon={() => setShowPassword((visible) => !visible)}
-            />
-
-            <Pressable style={styles.forgotButton} onPress={() => setError('Password reset is not available yet.')}>
-              <Text style={styles.forgotText}>Forgot password?</Text>
-            </Pressable>
-
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-
-            <Pressable disabled={isSubmitting} onPress={handleLogin} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed, isSubmitting && styles.disabled]}>
-              <View style={styles.buttonGradient}>
-                <Text style={styles.buttonText}>{isSubmitting ? 'Logging in...' : 'Log In'}</Text>
-              </View>
-            </Pressable>
-          </View>
-        </View>
-
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Don’t have an account? </Text>
-          <Link href="/(auth)/register" style={styles.footerLink}>Sign up</Link>
-        </View>
-      <PawPrint />
-      </ScrollView>
-    </SafeAreaView>
-  );
+  const [visible, setVisible] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const mounted = useRef(true);
+  useEffect(() => () => { mounted.current = false; setPassword(''); }, []);
+  async function submit() {
+    if (busy) return;
+    if (!identifier.trim() || !password) return setError('Enter your phone number or email and password.');
+    if (!isEmailIdentifier(identifier) && !isValidPhone(identifier)) return setError('Enter a phone number in international format, starting with +.');
+    setBusy(true); setError(null);
+    try { await signIn(identifier, password); }
+    catch (cause) { if (mounted.current) setError(cause instanceof Error ? cause.message : 'Unable to log in. Please try again.'); }
+    finally { if (mounted.current) setBusy(false); }
+  }
+  return <SafeAreaView style={s.safe}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.page}>
+    <View style={s.card}><BrandLogo /><Text style={s.title}>Welcome back ♡</Text><Text style={s.sub}>Personal pet care, happy life.</Text>
+      {params.message ? <Banner kind="success" text={params.message} /> : null}{error ? <Banner kind="error" text={error} /> : null}
+      <Field label="Phone number or email" value={identifier} onChangeText={setIdentifier} keyboardType="email-address" textContentType="username" />
+      <View><Field label="Password" value={password} onChangeText={setPassword} secureTextEntry={!visible} textContentType="password" onSubmitEditing={submit} /><Pressable accessibilityLabel={visible ? 'Hide password' : 'Show password'} style={s.eye} onPress={() => setVisible(v => !v)}><Ionicons name={visible ? 'eye-off-outline' : 'eye-outline'} size={22} color="#4c1d95" /></Pressable></View>
+      <Pressable accessibilityRole="button" disabled={busy} style={[s.button, busy && s.disabled]} onPress={submit}>{busy ? <ActivityIndicator color="white" /> : <Text style={s.buttonText}>Log in</Text>}</Pressable>
+      <Text style={s.footer}>New here? <Link href="/(auth)/register" style={s.link}>Create an account</Link></Text>
+    </View></ScrollView></SafeAreaView>;
 }
-
-type AuthFieldProps = ComponentProps<typeof TextInput> & {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  rightIcon?: keyof typeof Ionicons.glyphMap;
-  onPressRightIcon?: () => void;
-};
-
-function AuthField({ icon, label, rightIcon, onPressRightIcon, style, ...props }: AuthFieldProps) {
-  return (
-    <View style={styles.fieldGroup}>
-      <Text style={styles.label}>{label}</Text>
-      <View style={styles.inputWrap}>
-        <Ionicons name={icon} size={22} color="#65729F" />
-        <TextInput placeholderTextColor="#7480AD" style={[styles.input, style]} {...props} />
-        {rightIcon ? (
-          <Pressable accessibilityRole="button" onPress={onPressRightIcon} hitSlop={10}>
-            <Ionicons name={rightIcon} size={20} color="#65729F" />
-          </Pressable>
-        ) : null}
-      </View>
-    </View>
-  );
-}
-
-function DecorativeBubble() {
-  return <View style={styles.bubble}><View style={styles.bubbleDrop} /></View>;
-}
-
-function PawPrint() {
-  return <Ionicons name="paw" size={78} color="rgba(91,61,245,0.08)" style={styles.bottomPaw} />;
-}
-
-const styles = StyleSheet.create({
-  safeArea: { backgroundColor: '#FBFAFF', flex: 1 },
-  content: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 42, paddingBottom: 30 },
-  bubble: { backgroundColor: 'rgba(91,61,245,0.08)', borderRadius: 46, height: 92, position: 'absolute', right: -22, top: 66, width: 92 },
-  bubbleDrop: { backgroundColor: 'rgba(91,61,245,0.08)', borderRadius: 18, bottom: -16, height: 34, position: 'absolute', right: 10, transform: [{ rotate: '-40deg' }], width: 28 },
-  brand: { alignItems: 'center', marginBottom: 54, marginTop: -30 },
-  brandTitle: { color: '#11162B', fontSize: 32, fontWeight: '900', letterSpacing: -0.5, marginTop: 10 },
-  brandSubtitle: { color: '#52618D', fontSize: 17, fontWeight: '500', marginTop: 12, marginBottom: -80 },
-  heart: { color: '#4D1DFF', fontWeight: '900' },
-  card: { backgroundColor: '#FFFFFF', borderColor: 'rgba(91,61,245,0.10)', borderRadius: 24, borderWidth: 1, paddingHorizontal: 24, paddingTop: 58, paddingBottom: 40, shadowColor: '#3F2B79', shadowOffset: { width: 0, height: 18 }, shadowOpacity: 0.08, shadowRadius: 40, elevation: 8 },
-  cardHeader: { alignItems: 'center', marginBottom: 46 },
-  title: { color: '#10162E', fontSize: 26, fontWeight: '900', letterSpacing: -0.4 },
-  subtitle: { color: '#61709B', fontSize: 14, fontWeight: '600', marginTop: 14 },
-  form: { gap: 24 },
-  fieldGroup: { gap: 12 },
-  label: { color: '#10162E', fontSize: 14, fontWeight: '800' },
-  inputWrap: { alignItems: 'center', borderColor: 'rgba(101,114,159,0.24)', borderRadius: 10, borderWidth: 1.4, flexDirection: 'row', gap: 14, minHeight: 60, paddingHorizontal: 16 },
-  input: { color: '#11162B', flex: 1, fontSize: 15, fontWeight: '600' },
-  forgotButton: { alignSelf: 'flex-end', marginTop: -2 },
-  forgotText: { color: '#4D1DFF', fontSize: 14, fontWeight: '800' },
-  error: { color: theme.colors.danger, fontSize: 13, fontWeight: '700', lineHeight: 18 },
-  primaryButton: { borderRadius: 10, marginTop: 24, overflow: 'hidden' },
-  buttonGradient: { alignItems: 'center', backgroundColor: theme.colors.primaryDark, minHeight: 58, justifyContent: 'center' },
-  buttonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
-  pressed: { opacity: 0.84 },
-  disabled: { opacity: 0.58 },
-  footer: { alignItems: 'center', flexDirection: 'row', justifyContent: 'center', marginTop: 'auto', paddingTop: 40 },
-  footerText: { color: '#52618D', fontSize: 15, fontWeight: '500' },
-  footerLink: { color: '#4D1DFF', fontSize: 15, fontWeight: '900' },
-  bottomPaw: { bottom: 20, left: 10, position: 'absolute' },
-  padding: { marginBottom: 20 },
-});
+function Field(props: React.ComponentProps<typeof TextInput> & { label: string }) { const { label, ...rest } = props; return <View style={s.group}><Text style={s.label}>{label}</Text><TextInput {...rest} accessibilityLabel={label} autoCapitalize="none" autoCorrect={false} placeholderTextColor="#80758f" style={s.input} /></View>; }
+function Banner({ text, kind }: { text: string; kind: 'error' | 'success' }) { return <Text accessibilityRole="alert" style={[s.banner, kind === 'error' ? s.error : s.success]}>{text}</Text>; }
+const s = StyleSheet.create({ safe:{flex:1,backgroundColor:'#f7f4ef'},page:{flexGrow:1,justifyContent:'center',padding:20},card:{backgroundColor:'white',borderRadius:24,padding:24,gap:18,shadowColor:'#29134f',shadowOpacity:.1,shadowRadius:20,elevation:5},title:{color:'#211332',fontSize:28,fontWeight:'900',textAlign:'center'},sub:{color:'#71657c',textAlign:'center',marginBottom:8},group:{gap:8},label:{color:'#211332',fontWeight:'800'},input:{borderColor:'#d8cee4',borderWidth:1.5,borderRadius:12,minHeight:54,paddingHorizontal:15,color:'#211332',fontSize:16},eye:{position:'absolute',right:14,bottom:16},button:{backgroundColor:'#4c1d95',borderRadius:12,minHeight:56,alignItems:'center',justifyContent:'center',marginTop:6},buttonText:{color:'white',fontWeight:'900',fontSize:16},disabled:{opacity:.6},footer:{textAlign:'center',color:'#71657c'},link:{color:'#4c1d95',fontWeight:'900'},banner:{padding:12,borderRadius:10,lineHeight:20},error:{backgroundColor:'#fff1f2',color:'#a51d35'},success:{backgroundColor:'#ecfdf3',color:'#176b3a'} });

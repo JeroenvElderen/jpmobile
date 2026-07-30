@@ -2,12 +2,14 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 
 import { PushNotificationsProvider } from "@/providers/PushNotificationsProvider";
+import { AuthProvider } from "@/providers/AuthProvider";
+import { AuthGate } from "@/components/AuthGate";
 
 import { theme } from "@/lib/theme";
 
 export default function RootLayout() {
   return (
-    <PushNotificationsProvider>
+    <AuthProvider><AuthGate><PushNotificationsProvider>
       <StatusBar style="light" />
       <Stack
         screenOptions={{
@@ -69,6 +71,6 @@ export default function RootLayout() {
           options={{ animation: "none", headerShown: false }}
         />
       </Stack>
-    </PushNotificationsProvider>
+    </PushNotificationsProvider></AuthGate></AuthProvider>
   );
 }

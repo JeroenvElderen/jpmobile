@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/logo4.png",
-    "scheme": "jeroenandpawsmobile",
+    "scheme": "jeroenandpaws",
     "userInterfaceStyle": "automatic",
 
     "ios": {
@@ -56,6 +56,16 @@
               "scheme": "https",
               "host": "www.jeroenandpaws.com",
               "pathPrefix": "/portal"
+            },
+            {
+              "scheme": "https",
+              "host": "jeroenandpaws.com",
+              "pathPrefix": "/register"
+            },
+            {
+              "scheme": "https",
+              "host": "www.jeroenandpaws.com",
+              "pathPrefix": "/register"
             }
           ]
         }
