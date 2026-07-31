@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { extractInvite, filterOtp, isEmailIdentifier, isRegistrationLink, isValidPhone, normalizePhone, validateCommon } from "../src/lib/authValidation";
+import { extractInvite, filterOtp, isEmailIdentifier, isRegistrationLink, isValidIrishPhone, isValidPhone, normalizeIrishPhone, normalizePhone, validateCommon } from "../src/lib/authValidation";
 import { ADMIN_EMAIL, isAdminEmail, isAdminUser } from "../src/lib/authRouting";
 import { getFunctionErrorMessage } from "../src/lib/functionErrors";
 
@@ -12,6 +12,13 @@ test("preserves case-insensitive admin routing", () => {
   assert.equal(isAdminUser({ email: "client@example.com" }), false);
 });
 test("normalizes formatted international phones", () => { assert.equal(normalizePhone(" +31 (6) 123-45.678 "), "+31612345678"); assert.equal(isValidPhone("+31 6 12345678"), true); });
+test("normalizes Irish local mobile numbers for authentication", () => {
+  assert.equal(normalizeIrishPhone("083 301 1988"), "+353833011988");
+  assert.equal(normalizeIrishPhone("83-301-1988"), "+353833011988");
+  assert.equal(normalizeIrishPhone("+353 83 301 1988"), "+353833011988");
+  assert.equal(isValidIrishPhone("0833011988"), true);
+  assert.equal(isValidIrishPhone("1234"), false);
+});
 test("validates registration and password confirmation", () => { assert.match(validateCommon({ inviteCode:"short",fullName:"J",password:"password",confirmPassword:"password" })!,/Invite/); assert.match(validateCommon({ inviteCode:"12345678",fullName:"J",password:"password",confirmPassword:"different" })!,/match/); assert.equal(validateCommon({ inviteCode:"12345678",fullName:"Jeroen",password:"password",confirmPassword:"password" }),null); });
 test("filters and validates OTP input", () => { assert.equal(filterOtp("1a2 34-567"),"123456"); assert.equal(filterOtp("123").length===6,false); });
 test("extracts invite deep links safely", () => {

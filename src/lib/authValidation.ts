@@ -4,6 +4,15 @@ export const filterOtp = (value: string) => value.replace(/\D/g, "").slice(0, 6)
 export const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 export const isValidPhone = (value: string) => /^\+[1-9]\d{7,14}$/.test(normalizePhone(value));
 
+/** Converts an Irish local mobile number (for example 083 301 1988) to E.164. */
+export const normalizeIrishPhone = (value: string) => {
+  const digits = value.replace(/\D/g, "");
+  const nationalNumber = digits.startsWith("353") ? digits.slice(3) : digits.replace(/^0/, "");
+  return `+353${nationalNumber}`;
+};
+
+export const isValidIrishPhone = (value: string) => /^\+3538\d{8}$/.test(normalizeIrishPhone(value));
+
 type Common = { inviteCode: string; fullName: string; password: string; confirmPassword: string };
 export function validateCommon(input: Common): string | null {
   if (input.inviteCode.trim().length < 8) return "Invite code must be at least 8 characters.";
