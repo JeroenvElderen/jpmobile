@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { createAdminBooking, createAdminClient, createAdminDog, type AdminDashboardData } from "@/lib/adminDashboardData";
@@ -83,8 +83,9 @@ export default function QuickActionForms({ action, options, onClose, onSaved }: 
 
   return (
     <Modal visible={Boolean(action)} transparent animationType="slide" onRequestClose={handleClose}>
-      <Pressable style={styles.backdrop} onPress={handleClose} />
-      <View style={styles.sheet}>
+      <KeyboardAvoidingView style={styles.modal} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <Pressable style={styles.backdrop} onPress={handleClose} />
+        <View style={styles.sheet}>
         <View style={styles.header}>
           <Text style={styles.title}>{action ? titles[action] : "Quick action"}</Text>
           <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
@@ -92,7 +93,7 @@ export default function QuickActionForms({ action, options, onClose, onSaved }: 
           </TouchableOpacity>
         </View>
 
-        <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={styles.form} keyboardDismissMode="interactive" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           {action === "client" ? (
             <>
               <Field label="Full name" value={values.fullName} onChangeText={(value) => updateValue("fullName", value)} />
@@ -128,7 +129,8 @@ export default function QuickActionForms({ action, options, onClose, onSaved }: 
             {isSubmitting ? <ActivityIndicator color="#FFF" /> : <Text style={styles.submitText}>Save</Text>}
           </TouchableOpacity>
         </ScrollView>
-      </View>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -179,8 +181,9 @@ function Field({ label, ...props }: { label: string } & React.ComponentProps<typ
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: "rgba(29, 34, 56, 0.36)" },
-  sheet: { backgroundColor: "#FFF", borderTopLeftRadius: 28, borderTopRightRadius: 28, bottom: 0, left: 0, maxHeight: "82%", padding: 22, position: "absolute", right: 0 },
+  modal: { flex: 1, justifyContent: "flex-end" },
+  backdrop: { backgroundColor: "rgba(29, 34, 56, 0.36)", bottom: 0, left: 0, position: "absolute", right: 0, top: 0 },
+  sheet: { backgroundColor: "#FFF", borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: "82%", padding: 22 },
   header: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: 18 },
   title: { color: "#1D2238", fontSize: 24, fontWeight: "700" },
   closeButton: { alignItems: "center", height: 42, justifyContent: "center", width: 42 },

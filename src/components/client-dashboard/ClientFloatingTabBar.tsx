@@ -4,7 +4,7 @@ import * as ImageManipulator from "expo-image-manipulator";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { isClientAccountComplete } from "@/lib/accountSetup";
@@ -244,11 +244,12 @@ if (!response.ok || !upload) {
 
   return (
     <Modal visible={Boolean(action)} transparent animationType="slide" onRequestClose={resetAndClose}>
-      <Pressable style={styles.backdrop} onPress={resetAndClose} />
-      <View style={styles.sheet}>
+      <KeyboardAvoidingView style={styles.modal} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <Pressable style={styles.backdrop} onPress={resetAndClose} />
+        <View style={styles.sheet}>
         <View style={styles.sheetHeader}><View><Text style={styles.eyebrow}>{title}</Text><Text style={styles.sheetTitle}>{title}</Text></View><TouchableOpacity onPress={resetAndClose} style={styles.closeButton}><Ionicons name="close" size={25} color="#3B198F" /></TouchableOpacity></View>
         {action === "choose" ? <View style={styles.form}><TouchableOpacity style={styles.choiceCard} onPress={() => onChoose("booking")}><Ionicons name="calendar-outline" size={26} color="#5B3DF5" /><View style={styles.choiceCopy}><Text style={styles.choiceTitle}>Request booking</Text><Text style={styles.helpText}>Ask for care for one or more pets.</Text></View><Ionicons name="chevron-forward" size={20} color="#9CA3AF" /></TouchableOpacity><TouchableOpacity style={styles.choiceCard} onPress={() => onChoose("dog")}><Ionicons name="paw-outline" size={26} color="#5B3DF5" /><View style={styles.choiceCopy}><Text style={styles.choiceTitle}>Add a pet</Text><Text style={styles.helpText}>Create a new dog profile.</Text></View><Ionicons name="chevron-forward" size={20} color="#9CA3AF" /></TouchableOpacity><TouchableOpacity style={styles.choiceCard} onPress={() => onChoose("message")}><Ionicons name="logo-whatsapp" size={26} color="#16A34A" /><View style={styles.choiceCopy}><Text style={styles.choiceTitle}>Send message</Text><Text style={styles.helpText}>Open WhatsApp with your message.</Text></View><Ionicons name="chevron-forward" size={20} color="#9CA3AF" /></TouchableOpacity></View> : isLoading ? <View style={styles.loadingState}><ActivityIndicator color="#5B3DF5" /><Text style={styles.mutedText}>Loading your details...</Text></View> : (
-          <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+          <ScrollView contentContainerStyle={styles.form} keyboardDismissMode="interactive" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             {action === "booking" ? <>
               <Text style={styles.label}>Who is this booking for?</Text>
               {dogs.length ? <View style={styles.optionGrid}>{dogs.map((dog) => <TouchableOpacity key={dog.id} style={[styles.optionPill, selectedDogIds.includes(dog.id) && styles.optionPillSelected]} onPress={() => setSelectedDogIds((current) => current.includes(dog.id) ? current.filter((id) => id !== dog.id) : [...current, dog.id])}><Text style={[styles.optionText, selectedDogIds.includes(dog.id) && styles.optionTextSelected]}>{dog.name}</Text></TouchableOpacity>)}</View> : <Text style={styles.emptyText}>No dogs found yet.</Text>}
@@ -264,7 +265,8 @@ if (!response.ok || !upload) {
           </ScrollView>
         )}
         {action === "choose" ? null : <View style={styles.footer}><TouchableOpacity style={styles.cancelButton} onPress={resetAndClose}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity><TouchableOpacity style={styles.submitButton} onPress={submit} disabled={isSubmitting || isLoading}>{isSubmitting ? <ActivityIndicator color="#FFF" /> : <Text style={styles.submitText}>{action === "booking" ? `Request ${slots.length} booking${slots.length === 1 ? "" : "s"}` : action === "message" ? "Send to WhatsApp" : "Save dog"} <Ionicons name="paper-plane-outline" size={15} /></Text>}</TouchableOpacity></View>}
-      </View>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -397,8 +399,9 @@ const styles = StyleSheet.create({
   activeMoreLabel: { color: "#5B3DF5" },
   moreDivider: { backgroundColor: "#ECECF5", height: 1, marginVertical: 6 },
   fab: { width: 68, height: 68, borderRadius: 34, backgroundColor: "#5B3DF5", justifyContent: "center", alignItems: "center", marginTop: -35, shadowColor: "#5B3DF5", shadowOpacity: 0.35, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 20 },
-  backdrop: { flex: 1, backgroundColor: "rgba(29, 34, 56, 0.42)" },
-  sheet: { backgroundColor: "#FFF", borderTopLeftRadius: 28, borderTopRightRadius: 28, bottom: 0, left: 0, maxHeight: "90%", position: "absolute", right: 0 },
+  modal: { flex: 1, justifyContent: "flex-end" },
+  backdrop: { backgroundColor: "rgba(29, 34, 56, 0.42)", bottom: 0, left: 0, position: "absolute", right: 0, top: 0 },
+  sheet: { backgroundColor: "#FFF", borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: "90%" },
   sheetHeader: { alignItems: "center", borderBottomColor: "#ECECF5", borderBottomWidth: 1, flexDirection: "row", justifyContent: "space-between", padding: 22 },
   eyebrow: { color: "#3B198F", fontSize: 12, fontWeight: "900", letterSpacing: 2, textTransform: "uppercase" },
   sheetTitle: { color: "#1D2238", fontSize: 28, fontWeight: "700", marginTop: 6 },

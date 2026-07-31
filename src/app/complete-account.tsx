@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import type { ComponentProps } from "react";
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BrandLogo } from "@/components/BrandLogo";
@@ -72,7 +72,8 @@ export default function CompleteAccountScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView style={styles.keyboard} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+      <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="interactive" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={styles.card}>
           <View style={styles.header}>
             <BrandLogo />
@@ -93,6 +94,7 @@ export default function CompleteAccountScreen() {
           </View>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -122,6 +124,7 @@ function AccountField({ icon, label, rightIcon, onPressRightIcon, style, ...prop
 }
 
 const styles = StyleSheet.create({
+  keyboard: { flex: 1 },
   safeArea: { backgroundColor: "#FBFAFF", flex: 1 },
   content: { flexGrow: 1, justifyContent: "center", padding: 20 },
   card: { backgroundColor: "#FFFFFF", borderColor: "rgba(91,61,245,0.10)", borderRadius: 24, borderWidth: 1, paddingHorizontal: 24, paddingVertical: 34, shadowColor: "#3F2B79", shadowOffset: { width: 0, height: 18 }, shadowOpacity: 0.08, shadowRadius: 40, elevation: 8 },
