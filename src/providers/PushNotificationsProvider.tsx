@@ -4,6 +4,7 @@ import { createContext, type PropsWithChildren, useCallback, useContext, useEffe
 
 import { registerForPushNotificationsAsync, scheduleTestNotificationAsync, type PushRegistrationResult } from "@/lib/notifications";
 import { registerExpoPushToken } from "@/lib/pushTokens";
+import { useAuth } from "@/hooks/useAuth";
 
 type PushNotificationsContextValue = {
   expoPushToken: string | null;
@@ -19,6 +20,7 @@ const PushNotificationsContext = createContext<PushNotificationsContextValue | n
 let pendingPushRegistration: Promise<PushRegistrationResult> | null = null;
 
 export function PushNotificationsProvider({ children }: PropsWithChildren) {
+  const { user } = useAuth();
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
   const [lastRegistrationStatus, setLastRegistrationStatus] = useState<PushRegistrationResult["status"] | null>(null);
@@ -52,7 +54,11 @@ export function PushNotificationsProvider({ children }: PropsWithChildren) {
   }, []);
 
   useEffect(() => {
-    registerForPushNotifications();
+    if (user) {
+      void registerForPushNotifications().catch((error: unknown) => {
+        console.warn("Push notification registration failed:", error instanceof Error ? error.message : error);
+      });
+    }
 
     const receivedSubscription = Notifications.addNotificationReceivedListener((notification) => {
       setLastNotification(notification);
@@ -77,7 +83,7 @@ export function PushNotificationsProvider({ children }: PropsWithChildren) {
       receivedSubscription.remove();
       responseSubscription.remove();
     };
-  }, [registerForPushNotifications]);
+  }, [registerForPushNotifications, user]);
 
   const value = useMemo(
     () => ({

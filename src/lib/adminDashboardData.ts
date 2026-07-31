@@ -1,5 +1,6 @@
 import type { Ionicons } from "@expo/vector-icons";
 
+import { getFunctionErrorMessage } from "@/lib/functionErrors";
 import { supabase } from "@/lib/supabase";
 
 export type AdminDashboardStat = {
@@ -134,7 +135,7 @@ async function invokeAdminDashboard(body: Record<string, unknown>) {
   });
 
   if (error) {
-    throw new Error(await getFunctionErrorMessage(error));
+    throw new Error(await getFunctionErrorMessage(error, "Admin dashboard request failed.", response));
   }
 
   if (data?.error) {
@@ -146,37 +147,4 @@ async function invokeAdminDashboard(body: Record<string, unknown>) {
   }
 
   return data.data;
-}
-
-async function getFunctionErrorMessage(error: unknown, response?: Response) {
-  const fallback = error instanceof Error && error.message ? error.message : "Admin dashboard request failed.";
-  const context = typeof error === "object" && error !== null && "context" in error ? (error as { context?: unknown }).context : undefined;
-  const errorResponse = isResponseLike(response) ? response : isResponseLike(context) ? context : undefined;
-
-  if (errorResponse) {
-    const message = await readErrorResponse(errorResponse);
-    if (message) return message;
-  }
-
-  return fallback;
-}
-
-function isResponseLike(value: unknown): value is Response {
-  return typeof value === "object" && value !== null && "ok" in value && "status" in value && "json" in value && "text" in value;
-}
-
-async function readErrorResponse(response: Response) {
-  const jsonResponse = typeof response.clone === "function" ? response.clone() : response;
-
-  try {
-    const body = (await jsonResponse.json()) as { error?: unknown; message?: unknown };
-    if (typeof body.error === "string" && body.error.trim()) return body.error;
-    if (typeof body.message === "string" && body.message.trim()) return body.message;
-  } catch {
-    const textResponse = typeof response.clone === "function" ? response.clone() : response;
-    const text = await textResponse.text().catch(() => "");
-    if (text.trim()) return text.trim();
-  }
-
-  return undefined;
 }

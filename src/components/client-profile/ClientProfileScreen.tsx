@@ -395,13 +395,17 @@ function NotificationSettingsPopup({ visible, onClose }: { visible: boolean; onC
   };
 
   const handleEnablePush = async () => {
-    const result = await registerForPushNotifications();
-    if (result.status === Notifications.PermissionStatus.GRANTED) {
-      setPermissionStatus(result.status);
-      Alert.alert("Notifications enabled", "Push notifications are ready for this device.");
-    } else {
-      setPermissionStatus(result.status === "unavailable" || result.status === "missing-project-id" ? "unknown" : result.status);
-      Alert.alert("Notifications unavailable", "Please enable notifications in your device settings to receive alerts.");
+    try {
+      const result = await registerForPushNotifications();
+      if (result.status === Notifications.PermissionStatus.GRANTED) {
+        setPermissionStatus(result.status);
+        Alert.alert("Notifications enabled", "Push notifications are ready for this device.");
+      } else {
+        setPermissionStatus(result.status === "unavailable" || result.status === "missing-project-id" ? "unknown" : result.status);
+        Alert.alert("Notifications unavailable", "Please enable notifications in your device settings to receive alerts.");
+      }
+    } catch (error) {
+      Alert.alert("Notification registration failed", error instanceof Error ? error.message : "Please try again later.");
     }
   };
 

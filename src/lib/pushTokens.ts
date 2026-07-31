@@ -1,9 +1,10 @@
 import { Platform } from "react-native";
 
+import { getFunctionErrorMessage } from "@/lib/functionErrors";
 import { supabase } from "@/lib/supabase";
 
 export async function registerExpoPushToken(expoPushToken: string) {
-  const { error } = await supabase.functions.invoke("push-notifications", {
+  const { error, response } = await supabase.functions.invoke("push-notifications", {
     body: {
       action: "register-token",
       token: expoPushToken,
@@ -11,11 +12,13 @@ export async function registerExpoPushToken(expoPushToken: string) {
     },
   });
 
-  if (error) throw error;
+  if (error) {
+    throw new Error(await getFunctionErrorMessage(error, "Could not register this device for push notifications.", response));
+  }
 }
 
 export async function sendAdminPushNotification(input: { title: string; body: string; url?: string; type?: string }) {
-  const { error } = await supabase.functions.invoke("push-notifications", {
+  const { error, response } = await supabase.functions.invoke("push-notifications", {
     body: {
       action: "notify-admins",
       title: input.title,
@@ -25,5 +28,7 @@ export async function sendAdminPushNotification(input: { title: string; body: st
     },
   });
 
-  if (error) throw error;
+  if (error) {
+    throw new Error(await getFunctionErrorMessage(error, "Could not send the push notification.", response));
+  }
 }

@@ -40,6 +40,26 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npx expo start
    ```
 
+### Building and running Android locally
+
+`npx expo run:android` is a local native build, so it needs Android Studio's SDK, platform tools, and either a running emulator or a connected device. Before starting the build, verify that ADB can see a target:
+
+```bash
+adb devices
+npx expo run:android --device
+```
+
+If the command appears to stop before Gradle begins, start an Android Virtual Device in Android Studio first (or enable USB debugging on a physical device), then retry. Ensure `ANDROID_HOME` points to the Android SDK and that `$ANDROID_HOME/platform-tools` is on `PATH`. To separate native-project generation from device selection, run `npx expo prebuild --platform android --no-install`; generated `android/` files are local build artifacts and are ignored by Git.
+
+This project targets Expo SDK 57. Use the [versioned Expo 57 documentation](https://docs.expo.dev/versions/v57.0.0/) rather than unversioned setup instructions.
+
+Push registration also requires the checked-in Supabase migration and Edge Function to be deployed:
+
+```bash
+supabase db push
+supabase functions deploy push-notifications
+```
+
 In the output, you'll find options to open the app in a
 
 - [development build](https://docs.expo.dev/develop/development-builds/introduction/)
