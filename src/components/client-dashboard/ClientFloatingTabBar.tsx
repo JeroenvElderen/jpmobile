@@ -31,9 +31,12 @@ const createEmptyDogDraft = (id = String(Date.now())): DogDraft => ({ id, name: 
 
 export default function ClientFloatingTabBar({ activeRoute = "home" }: Props) {
   const router = useRouter();
-  const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [quickAction, setQuickAction] = useState<QuickAction>(null);
-  const moreActive = activeRoute === "activity" || activeRoute === "profile" || activeRoute === "galleries";
+  const primaryAction = activeRoute === "pets"
+    ? { action: "dog" as const, icon: "paw-outline" as const, label: "Add a pet" }
+    : (activeRoute === "home" || activeRoute === "bookings")
+      ? { action: "booking" as const, icon: "add" as const, label: "Request booking" }
+      : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -50,7 +53,6 @@ export default function ClientFloatingTabBar({ activeRoute = "home" }: Props) {
   }, [router]);
 
   const navigate = (href: Parameters<typeof router.replace>[0]) => {
-    setIsMoreOpen(false);
     setQuickAction(null);
     router.replace(href);
   };
@@ -58,26 +60,18 @@ export default function ClientFloatingTabBar({ activeRoute = "home" }: Props) {
   return (
     <SafeAreaView pointerEvents="box-none" style={styles.safeArea}>
       <ClientQuickActionModal action={quickAction} onClose={() => setQuickAction(null)} onChoose={setQuickAction} />
-      <View style={styles.container}>
-        <TabButton icon="home-outline" active={activeRoute === "home"} onPress={() => navigate("/client")} />
-        <TabButton icon="calendar-outline" active={activeRoute === "bookings"} onPress={() => navigate("/client/bookings")} />
-
-        <TouchableOpacity style={styles.fab} activeOpacity={0.9} onPress={() => setQuickAction("choose")}>
-          <Ionicons name="add" size={34} color="#FFF" />
+      {primaryAction ? (
+        <TouchableOpacity accessibilityLabel={primaryAction.label} accessibilityRole="button" activeOpacity={0.9} onPress={() => setQuickAction(primaryAction.action)} style={styles.requestButton}>
+          <Ionicons name={primaryAction.icon} size={20} color="#FFF" />
+          <Text style={styles.requestButtonText}>{primaryAction.label}</Text>
         </TouchableOpacity>
-
-        <TabButton icon="paw-outline" active={activeRoute === "pets"} onPress={() => navigate("/client/dogs")} />
-
-        <View style={styles.moreGroup}>
-          {isMoreOpen && (
-            <View style={styles.moreMenu}>
-              <MoreButton icon="images-outline" label="Galleries" active={activeRoute === "galleries"} onPress={() => navigate("/client/galleries")} />
-                <View style={styles.moreDivider} />
-              <MoreButton icon="person-outline" label="Profile" active={activeRoute === "profile"} onPress={() => navigate("/client/profile")} />
-            </View>
-          )}
-          <TabButton icon="ellipsis-horizontal" active={moreActive || isMoreOpen} onPress={() => setIsMoreOpen((isOpen) => !isOpen)} />
-        </View>
+      ) : null}
+      <View style={styles.container}>
+        <TabButton label="Home" icon="home-outline" active={activeRoute === "home"} onPress={() => navigate("/client")} />
+        <TabButton label="Bookings" icon="calendar-outline" active={activeRoute === "bookings"} onPress={() => navigate("/client/bookings")} />
+        <TabButton label="Pets" icon="paw-outline" active={activeRoute === "pets"} onPress={() => navigate("/client/dogs")} />
+        <TabButton label="Galleries" icon="images-outline" active={activeRoute === "galleries"} onPress={() => navigate("/client/galleries")} />
+        <TabButton label="Settings" icon="settings-outline" active={activeRoute === "profile"} onPress={() => navigate("/client/profile")} />
       </View>
     </SafeAreaView>
   );
@@ -382,15 +376,19 @@ function AvatarPicker({ avatar, onPick, onClear }: { avatar: DogAvatarFile | nul
 function Field({ label, ...props }: { label: string } & React.ComponentProps<typeof TextInput>) { return <View style={styles.field}><Text style={styles.label}>{label}</Text><TextInput placeholderTextColor="#8F8EA0" style={[styles.input, props.multiline && styles.multiline]} {...props} /></View>; }
 function Dropdown({ label, value, options, onSelect }: { label: string; value: string; options: string[]; onSelect: (value: string) => void }) { const [open, setOpen] = useState(false); return <View style={styles.field}><Text style={styles.label}>{label}</Text><TouchableOpacity style={styles.selectInput} onPress={() => setOpen((current) => !current)}><Text style={styles.selectText}>{value}</Text><Ionicons name={open ? "chevron-up" : "chevron-down"} size={18} color="#1D2238" /></TouchableOpacity>{open ? <View style={styles.selectMenu}>{options.map((option) => <TouchableOpacity key={option} style={[styles.selectOption, option === value && styles.selectOptionActive]} onPress={() => { onSelect(option); setOpen(false); }}><Text style={styles.selectText}>{option}</Text></TouchableOpacity>)}</View> : null}</View>; }
 
-type TabButtonProps = { icon: keyof typeof Ionicons.glyphMap; active?: boolean; onPress: () => void; };
-function TabButton({ icon, active, onPress }: TabButtonProps) { return <TouchableOpacity onPress={onPress} style={[styles.tab, active && styles.activeTab]} activeOpacity={1}><Ionicons name={icon} size={25} color={active ? "#5B3DF5" : "#9CA3AF"} /></TouchableOpacity>; }
+type TabButtonProps = { label: string; icon: keyof typeof Ionicons.glyphMap; active?: boolean; onPress: () => void; };
+function TabButton({ label, icon, active, onPress }: TabButtonProps) { return <TouchableOpacity accessibilityLabel={label} accessibilityRole="tab" accessibilityState={{ selected: Boolean(active) }} onPress={onPress} style={[styles.tab, active && styles.activeTab]} activeOpacity={1}><Ionicons name={icon} size={22} color={active ? "#5B3DF5" : "#747B93"} /><Text numberOfLines={1} style={[styles.tabLabel, active && styles.activeTabLabel]}>{label}</Text></TouchableOpacity>; }
 function MoreButton({ icon, label, active, onPress }: TabButtonProps & { label: string }) { return <TouchableOpacity onPress={onPress} style={[styles.moreButton, active && styles.activeMoreButton]} activeOpacity={1}><Ionicons name={icon} size={18} color={active ? "#5B3DF5" : "#5B668D"} /><Text style={[styles.moreLabel, active && styles.activeMoreLabel]}>{label}</Text></TouchableOpacity>; }
 
 const styles = StyleSheet.create({
   safeArea: { position: "absolute", left: 0, right: 0, bottom: 0 },
-  container: { marginHorizontal: 18, marginBottom: 10, height: 82, backgroundColor: "#FFF", borderRadius: 50, flexDirection: "row", justifyContent: "space-evenly", alignItems: "center", shadowColor: "#000", shadowOpacity: 0.12, shadowRadius: 24, shadowOffset: { width: 0, height: 10 }, elevation: 15 },
-  tab: { width: 48, height: 48, justifyContent: "center", alignItems: "center", borderRadius: 24 },
+  requestButton: { alignItems: "center", alignSelf: "center", backgroundColor: "#5B3DF5", borderRadius: 999, flexDirection: "row", gap: 7, marginBottom: 8, paddingHorizontal: 18, paddingVertical: 11, shadowColor: "#5B3DF5", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 8 },
+  requestButtonText: { color: "#FFF", fontSize: 13, fontWeight: "900" },
+  container: { marginHorizontal: 12, marginBottom: 8, height: 72, backgroundColor: "#FFF", borderRadius: 28, flexDirection: "row", justifyContent: "space-evenly", alignItems: "center", paddingHorizontal: 5, shadowColor: "#000", shadowOpacity: 0.12, shadowRadius: 24, shadowOffset: { width: 0, height: 10 }, elevation: 15 },
+  tab: { flex: 1, height: 58, gap: 3, justifyContent: "center", alignItems: "center", borderRadius: 18 },
   activeTab: { backgroundColor: "#F3EEFF" },
+  tabLabel: { color: "#747B93", fontSize: 10, fontWeight: "700" },
+  activeTabLabel: { color: "#5B3DF5", fontWeight: "900" },
   moreGroup: { alignItems: "center", justifyContent: "center" },
   moreMenu: { position: "absolute", bottom: 62, right: 0, width: 210, backgroundColor: "#FFF", borderRadius: 22, padding: 8, shadowColor: "#000", shadowOpacity: 0.14, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 18 },
   moreButton: { alignItems: "center", borderRadius: 16, flexDirection: "row", gap: 8, paddingHorizontal: 12, paddingVertical: 11 },

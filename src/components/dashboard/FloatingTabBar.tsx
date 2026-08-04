@@ -1,8 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import { supabase } from "@/lib/supabase";
 
 type RouteKey = "home" | "bookings" | "dogs" | "clients" | "galleries";
 type AdminQuickAction = "booking" | "client" | "dog";
@@ -22,6 +24,7 @@ export default function FloatingTabBar({ activeRoute = "home", onQuickAction }: 
   const router = useRouter();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [isActionOpen, setIsActionOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const moreActive = activeRoute === "clients" || activeRoute === "galleries";
 
   const navigate = (href: Parameters<typeof router.replace>[0]) => {
@@ -34,6 +37,31 @@ export default function FloatingTabBar({ activeRoute = "home", onQuickAction }: 
     setIsActionOpen(false);
     setIsMoreOpen(false);
     onQuickAction?.(action);
+  };
+
+  const logout = () => {
+    if (isLoggingOut) return;
+
+    Alert.alert("Log out", "Are you sure you want to log out of the admin account?", [
+      { text: "Stay logged in", style: "cancel" },
+      {
+        text: "Log out",
+        style: "destructive",
+        onPress: async () => {
+          setIsLoggingOut(true);
+          const { error } = await supabase.auth.signOut();
+
+          if (error) {
+            setIsLoggingOut(false);
+            Alert.alert("Logout failed", error.message);
+            return;
+          }
+
+          setIsMoreOpen(false);
+          router.replace("/(auth)/login");
+        },
+      },
+    ]);
   };
 
   return (
@@ -94,6 +122,18 @@ export default function FloatingTabBar({ activeRoute = "home", onQuickAction }: 
                 active={activeRoute === "galleries"}
                 onPress={() => navigate("/admin/galleries")}
               />
+              <View style={styles.moreDivider} />
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Log out of admin account"
+                disabled={isLoggingOut}
+                onPress={logout}
+                style={styles.logoutButton}
+                activeOpacity={0.82}
+              >
+                <Ionicons name="log-out-outline" size={18} color="#D92D20" />
+                <Text style={styles.logoutLabel}>{isLoggingOut ? "Logging out..." : "Log out"}</Text>
+              </TouchableOpacity>
             </View>
           )}
           <TabButton
@@ -291,7 +331,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 11,
   },
-
+  moreDivider: { backgroundColor: "#ECECF5", height: 1, marginVertical: 5 },
+  logoutButton: { alignItems: "center", borderRadius: 16, flexDirection: "row", gap: 8, paddingHorizontal: 12, paddingVertical: 11 },
+  logoutLabel: { color: "#D92D20", fontSize: 13, fontWeight: "800" },
+  
   activeMoreButton: {
     backgroundColor: "#F3EEFF",
   },

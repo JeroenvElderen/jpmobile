@@ -1,25 +1,20 @@
 import { Ionicons } from "@expo/vector-icons";
 import { BrandLogo } from "@/components/BrandLogo";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 export default function GalleriesHeader() {
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.iconButton} activeOpacity={0.8}>
+      <View style={styles.iconButton}>
         <BrandLogo variant="mark" />
-      </TouchableOpacity>
+      </View>
 
       <View style={styles.titleWrap}>
         <Text style={styles.title}>Galleries</Text>
         <Ionicons name="images-outline" size={27} color="#4B22C8" />
       </View>
 
-      <TouchableOpacity style={styles.notification} activeOpacity={0.8}>
-        <Ionicons name="notifications-outline" size={27} color="#141A33" />
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>2</Text>
-        </View>
-      </TouchableOpacity>
+      <View style={styles.iconButton} />
     </View>
   );
 }
@@ -48,27 +43,5 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "800",
     letterSpacing: 0.2,
-  },
-  notification: {
-    alignItems: "center",
-    height: 44,
-    justifyContent: "center",
-    width: 44,
-  },
-  badge: {
-    alignItems: "center",
-    backgroundColor: "#EF2852",
-    borderRadius: 12,
-    height: 24,
-    justifyContent: "center",
-    position: "absolute",
-    right: 1,
-    top: 0,
-    width: 24,
-  },
-  badgeText: {
-    color: "#FFF",
-    fontSize: 12,
-    fontWeight: "800",
   },
 });

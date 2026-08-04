@@ -157,7 +157,7 @@ function ProfileHeader({ activityCount }: { activityCount: number }) {
       <TouchableOpacity style={styles.headerIcon} activeOpacity={0.8}>
         <Ionicons name="menu-outline" size={32} color="#141A33" />
       </TouchableOpacity>
-      <Text style={styles.headerTitle}>Profile</Text>
+      <Text style={styles.headerTitle}>Settings</Text>
       <TouchableOpacity style={styles.headerIcon} activeOpacity={0.8}>
         <Ionicons name="notifications-outline" size={27} color="#141A33" />
         {activityCount ? <View style={styles.badge}><Text style={styles.badgeText}>{Math.min(activityCount, 9)}</Text></View> : null}
