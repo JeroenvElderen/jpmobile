@@ -3,16 +3,6 @@ import type { Ionicons } from "@expo/vector-icons";
 import { getFunctionErrorMessage } from "@/lib/functionErrors";
 import { supabase } from "@/lib/supabase";
 
-export type AdminDashboardStat = {
-  title: string;
-  value: string;
-  change: string;
-  positive: boolean;
-  icon: keyof typeof Ionicons.glyphMap;
-  iconColor: string;
-  iconBackground: string;
-};
-
 export type AdminScheduleItem = {
   id: string;
   time: string;
@@ -37,13 +27,11 @@ export type AdminFormClientOption = { id: string; name: string; address: string 
 export type AdminFormDogOption = { id: string; ids: string[]; name: string };
 
 export type AdminDashboardData = {
-  stats: AdminDashboardStat[];
-  schedule: AdminScheduleItem[];
+  pendingBookingRequests: AdminScheduleItem[];
   bookingTrend: number[];
   revenueTrend: number[];
   activities: AdminActivityItem[];
   notificationCount: number;
-  monthLabel?: string;
   formOptions?: {
     clients: AdminFormClientOption[];
     dogsByClient: Record<string, AdminFormDogOption[]>;

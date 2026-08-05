@@ -2,12 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import DashboardHeader from "@/components/dashboard/DashBoardHeader";
-import DashboardStats from "@/components/dashboard/DashboardStats";
 import PerformanceCard from "@/components/dashboard/PerformanceCard";
 import QuickActions from "@/components/dashboard/QuickActions";
 import QuickActionForms from "@/components/dashboard/QuickActionForms";
 import RecentActivity from "@/components/dashboard/RecentActivity";
-import ScheduleCard from "@/components/dashboard/ScheduleCard";
+import PendingBookingRequestsCard from "@/components/dashboard/PendingBookingRequestsCard";
 import FloatingTabBar from "@/components/dashboard/FloatingTabBar";
 import { fetchAdminDashboardData, type AdminDashboardData } from "@/lib/adminDashboardData";
 import { supabase } from "@/lib/supabase";
@@ -87,8 +86,7 @@ export default function AdminScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <DashboardHeader notificationCount={dashboardData.notificationCount} />
         <QuickActions onNewBooking={() => setActiveAction("booking")} onAddClient={() => setActiveAction("client")} onAddDog={() => setActiveAction("dog")} />
-        <DashboardStats stats={dashboardData.stats} />
-        <ScheduleCard schedule={dashboardData.schedule} />
+        <PendingBookingRequestsCard requests={dashboardData.pendingBookingRequests} />
         <PerformanceCard bookingTrend={dashboardData.bookingTrend} revenueTrend={dashboardData.revenueTrend} />
         <RecentActivity activities={dashboardData.activities} />
       </ScrollView>

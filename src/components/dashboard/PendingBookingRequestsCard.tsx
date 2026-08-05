@@ -1,26 +1,25 @@
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { router } from "expo-router";
+import { StyleSheet, Text, View } from "react-native";
 import ScheduleItem from "./ScheduleItem";
 import type { AdminScheduleItem } from "@/lib/adminDashboardData";
 
-export default function ScheduleCard({ schedule }: { schedule: AdminScheduleItem[] }) {
+export default function PendingBookingRequestsCard({ requests }: { requests: AdminScheduleItem[] }) {
   return (
     <View style={styles.card}>
       <View style={styles.header}>
         <Text style={styles.title}>
-          Today's Schedule
+          Pending Booking Requests
         </Text>
       </View>
 
-      {schedule.length ? (
-        schedule.map((item) => (
+      {requests.length ? (
+        requests.map((item) => (
           <ScheduleItem
             key={item.id}
             item={item}
           />
         ))
       ) : (
-        <Text style={styles.emptyText}>No bookings scheduled for today.</Text>
+        <Text style={styles.emptyText}>No pending booking requests.</Text>
       )}
     </View>
   );
@@ -59,27 +58,8 @@ const styles = StyleSheet.create({
     color: "#1D2238",
   },
 
-  viewAll: {
-    color: "#5B3DF5",
-    fontWeight: "600",
-  },
-
   emptyText: {
     color: "#70758E",
     paddingVertical: 18,
-  },
-  
-  button: {
-    marginTop: 20,
-    backgroundColor: "#5B3DF5",
-    borderRadius: 16,
-    alignItems: "center",
-    paddingVertical: 16,
-  },
-
-  buttonText: {
-    color: "#FFF",
-    fontWeight: "700",
-    fontSize: 16,
   },
 });

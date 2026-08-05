@@ -177,20 +177,14 @@ Deno.serve(async (req) => {
 async function fetchDashboard(supabase: ReturnType<typeof createClient>) {
   const now = new Date();
   const monthStart = startOfMonth(now);
-  const previousMonthStart = addMonths(monthStart, -1);
-  const nextMonthStart = addMonths(monthStart, 1);
   const trendStart = addMonths(monthStart, -(trendMonths - 1));
 
-  const [monthBookings, previousMonthBookings, pendingBookings, completedBookings, scheduleResult, trendResult, activitiesResult, clientsResult, dogsResult, servicesResult] = await Promise.all([
-    countRows(supabase, "portal_bookings", "starts_at", monthStart, nextMonthStart),
-    countRows(supabase, "portal_bookings", "starts_at", previousMonthStart, monthStart),
+  const [pendingBookings, pendingBookingRequestsResult, trendResult, activitiesResult, clientsResult, dogsResult, servicesResult] = await Promise.all([
     countRows(supabase, "portal_bookings", undefined, undefined, undefined, "status", "pending"),
-    countRows(supabase, "portal_bookings", undefined, undefined, undefined, "status", "completed"),
     supabase
       .from("admin_booking_calendar")
       .select("id, dog_name, service_name, starts_at, location, status, cover_image_url")
-      .gte("starts_at", monthStart.toISOString())
-      .lt("starts_at", nextMonthStart.toISOString())
+      .eq("status", "pending")
       .order("starts_at", { ascending: true })
       .limit(10),
     supabase
@@ -208,27 +202,18 @@ async function fetchDashboard(supabase: ReturnType<typeof createClient>) {
     supabase.from("portal_bookings").select("service_name").not("service_name", "is", null),
   ]);
 
-  for (const result of [monthBookings, previousMonthBookings, pendingBookings, completedBookings, scheduleResult, trendResult, activitiesResult, clientsResult, dogsResult, servicesResult]) {
+  for (const result of [pendingBookings, pendingBookingRequestsResult, trendResult, activitiesResult, clientsResult, dogsResult, servicesResult]) {
     if (result.error) throw result.error;
   }
 
-  const monthCount = monthBookings.count ?? 0;
-  const previousMonthCount = previousMonthBookings.count ?? 0;
   const trendBookings = (trendResult.data ?? []) as PortalBooking[];
 
   return {
-    stats: [
-      makeStat("This Month", monthCount, getPercentChange(monthCount, previousMonthCount), true, "calendar-outline", "#5B3DF5", "#F3EEFF"),
-      makeStat("Pending", pendingBookings.count ?? 0, "Live", false, "time-outline", "#F97316", "#FFF5EB"),
-      makeStat("Completed", completedBookings.count ?? 0, "Live", true, "checkmark-circle-outline", "#16A34A", "#ECFDF3"),
-      makeStat("Total Earnings", "€0", "Invoices later", true, "cash-outline", "#5B3DF5", "#F3EEFF"),
-    ],
-    schedule: ((scheduleResult.data ?? []) as PortalBooking[]).map(mapScheduleItem),
+    pendingBookingRequests: ((pendingBookingRequestsResult.data ?? []) as PortalBooking[]).map(mapScheduleItem),
     bookingTrend: buildTrend(trendBookings, () => 1),
     revenueTrend: Array.from({ length: trendMonths }, () => 0),
     activities: ((activitiesResult.data ?? []) as PortalActivity[]).map(mapActivity),
-    notificationCount: (pendingBookings.count ?? 0) + monthCount,
-    monthLabel: new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(monthStart),
+    notificationCount: pendingBookings.count ?? 0,
     formOptions: buildFormOptions((clientsResult.data ?? []) as PortalClientOption[], (dogsResult.data ?? []) as PortalDogOption[], servicesResult.data ?? []),
   };
 }
@@ -443,10 +428,6 @@ function normalizeBookingStatus(status: string) {
   return normalized;
 }
 
-function makeStat(title: string, value: number | string, change: string, positive: boolean, icon: string, iconColor: string, iconBackground: string) {
-  return { title, value: String(value), change, positive, icon, iconColor, iconBackground };
-}
-
 function mapScheduleItem(booking: PortalBooking) {
   const startsAt = booking.starts_at ? new Date(booking.starts_at) : null;
   return {
@@ -506,11 +487,6 @@ function addMonths(date: Date, months: number) {
   const next = new Date(date);
   next.setMonth(next.getMonth() + months);
   return next;
-}
-
-function getPercentChange(current: number, previous: number) {
-  if (previous === 0) return current > 0 ? "100%" : "0%";
-  return `${Math.round(((current - previous) / previous) * 100)}%`;
 }
 
 function toTitleCase(value: string) {
