@@ -40,19 +40,22 @@ export default function AdminBookingListScreen({ bookings, stats, onBookingChang
   const [view, setView] = useState<BookingView>("list");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
-  const [newestFirst, setNewestFirst] = useState(true);
   const visibleBookings = useMemo(() => {
     const query = searchQuery.trim().toLocaleLowerCase();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
     return bookings
+      .filter((booking) => {
+        if (!booking.startsAtIso) return false;
+        const startsAt = new Date(booking.startsAtIso);
+        return !Number.isNaN(startsAt.getTime()) && startsAt >= today;
+      })
       .filter((booking) => statusFilter === "All" || booking.status === statusFilter)
       .filter((booking) => !query || [booking.id, booking.dog, booking.client, booking.service, booking.breed]
         .some((value) => value.toLocaleLowerCase().includes(query)))
-      .sort((left, right) => {
-        const leftTime = left.startsAtIso ? new Date(left.startsAtIso).getTime() : 0;
-        const rightTime = right.startsAtIso ? new Date(right.startsAtIso).getTime() : 0;
-        return newestFirst ? rightTime - leftTime : leftTime - rightTime;
-      });
-  }, [bookings, newestFirst, searchQuery, statusFilter]);
+      .sort((left, right) => new Date(left.startsAtIso!).getTime() - new Date(right.startsAtIso!).getTime());
+  }, [bookings, searchQuery, statusFilter]);
 
   const cycleStatusFilter = () => {
     const filters: StatusFilter[] = ["All", "Pending", "Confirmed", "Cancelled"];
@@ -171,11 +174,11 @@ export default function AdminBookingListScreen({ bookings, stats, onBookingChang
 
       {view === "calendar" ? <BookingCalendar bookings={visibleBookings} /> : <View style={styles.tableCard}>
         <View style={styles.tableHeaderRow}>
-          <Text style={styles.tableTitle}>All Bookings</Text>
-          <TouchableOpacity accessibilityLabel={`Sort by date, ${newestFirst ? "newest first" : "oldest first"}`} onPress={() => setNewestFirst((current) => !current)} style={styles.sortButton} activeOpacity={0.86}>
-            <Text style={styles.sortText}>{newestFirst ? "Newest first" : "Oldest first"}</Text>
-            <Ionicons name={newestFirst ? "arrow-down" : "arrow-up"} size={16} color="#1F2756" />
-          </TouchableOpacity>
+          <Text style={styles.tableTitle}>Upcoming Bookings</Text>
+          <View accessibilityLabel="Sorted by date, today first" style={styles.sortButton}>
+            <Text style={styles.sortText}>Today first</Text>
+            <Ionicons name="arrow-up" size={16} color="#1F2756" />
+          </View>
         </View>
 
         {visibleBookings.length === 0 ? <View style={styles.emptyState}><Ionicons name="calendar-outline" size={30} color="#5B3DF5" /><Text style={styles.emptyTitle}>No bookings found</Text><Text style={styles.emptyCopy}>Try another search or status filter.</Text></View> : null}

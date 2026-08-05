@@ -64,9 +64,13 @@ type PortalClient = {
 const fallbackDogImage = "https://placedog.net/220/220?id=102";
 
 export async function fetchAdminBookingsData(): Promise<BookingsData> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   const { data, error } = await supabase
     .from("admin_booking_calendar")
     .select("id, client_id, client_name, dog_name, service_name, starts_at, ends_at, location, status, source, sync_status, cover_image_url, notes")
+    .gte("starts_at", today.toISOString())
     .order("starts_at", { ascending: true })
     .limit(25)
     .returns<PortalBookingRow[]>();
@@ -159,9 +163,9 @@ export async function fetchClientBookingsData(): Promise<BookingsData> {
 }
 
 function sortBookingsForAdmin(a: Booking, b: Booking) {
-  if (a.status === "Pending" && b.status !== "Pending") return -1;
-  if (a.status !== "Pending" && b.status === "Pending") return 1;
-  return a.scheduleDay.localeCompare(b.scheduleDay) || a.time.localeCompare(b.time);
+  const leftTime = a.startsAtIso ? new Date(a.startsAtIso).getTime() : Number.POSITIVE_INFINITY;
+  const rightTime = b.startsAtIso ? new Date(b.startsAtIso).getTime() : Number.POSITIVE_INFINITY;
+  return leftTime - rightTime;
 }
 
 function mapBookingRow(row: PortalBookingRow): Booking {

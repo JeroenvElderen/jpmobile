@@ -27,8 +27,7 @@ type BookingCalendarProps = {
 };
 
 export default function BookingCalendar({ bookings, stats = [], showStats = false }: BookingCalendarProps) {
-  const initialDate = useMemo(() => getInitialDate(bookings), [bookings]);
-  const [selectedDate, setSelectedDate] = useState(initialDate);
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [calendarView, setCalendarView] = useState<CalendarView>("Day");
   const selectedDayStart = startOfDay(selectedDate);
   const visibleDays = useMemo(() => buildWeekDays(selectedDate), [selectedDate]);
@@ -299,11 +298,6 @@ function TimelineBookingCard({ booking, index }: { booking: Booking; index: numb
       </View>
     </View>
   );
-}
-
-function getInitialDate(bookings: Booking[]) {
-  const firstDatedBooking = bookings.find((booking) => booking.startsAtIso);
-  return firstDatedBooking?.startsAtIso ? new Date(firstDatedBooking.startsAtIso) : new Date();
 }
 
 function buildWeekDays(date: Date) {
