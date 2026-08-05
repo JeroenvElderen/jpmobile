@@ -4,6 +4,7 @@ import { Alert, Image, Modal, Pressable, StyleSheet, Text, TextInput, TouchableO
 
 import { Booking, BookingStat, BookingStatus } from "@/lib/bookingData";
 import { cancelAdminBooking, confirmAdminBooking, rejectAdminBooking, updateAdminBooking } from "@/lib/adminDashboardData";
+import BookingCalendar from "./BookingCalendar";
 
 const statusStyles: Record<BookingStatus, { bg: string; color: string; icon: keyof typeof Ionicons.glyphMap }> = {
   Confirmed: { bg: "#EAF8EF", color: "#178A3B", icon: "checkmark-circle-outline" },
@@ -19,6 +20,8 @@ const actionItems = [
 ] as const;
 
 type BookingAction = (typeof actionItems)[number]["label"];
+type BookingView = "list" | "calendar";
+type StatusFilter = "All" | BookingStatus;
 
 type AdminBookingListScreenProps = {
   bookings: Booking[];
@@ -34,7 +37,27 @@ export default function AdminBookingListScreen({ bookings, stats, onBookingChang
   const [editLocation, setEditLocation] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [busyAction, setBusyAction] = useState<BookingAction | "Save" | null>(null);
-  const visibleBookings = useMemo(() => bookings.slice(0, 8), [bookings]);
+  const [view, setView] = useState<BookingView>("list");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
+  const [newestFirst, setNewestFirst] = useState(true);
+  const visibleBookings = useMemo(() => {
+    const query = searchQuery.trim().toLocaleLowerCase();
+    return bookings
+      .filter((booking) => statusFilter === "All" || booking.status === statusFilter)
+      .filter((booking) => !query || [booking.id, booking.dog, booking.client, booking.service, booking.breed]
+        .some((value) => value.toLocaleLowerCase().includes(query)))
+      .sort((left, right) => {
+        const leftTime = left.startsAtIso ? new Date(left.startsAtIso).getTime() : 0;
+        const rightTime = right.startsAtIso ? new Date(right.startsAtIso).getTime() : 0;
+        return newestFirst ? rightTime - leftTime : leftTime - rightTime;
+      });
+  }, [bookings, newestFirst, searchQuery, statusFilter]);
+
+  const cycleStatusFilter = () => {
+    const filters: StatusFilter[] = ["All", "Pending", "Confirmed", "Cancelled"];
+    setStatusFilter(filters[(filters.indexOf(statusFilter) + 1) % filters.length]);
+  };
 
   const closeSheets = () => {
     setSelectedBooking(null);
@@ -118,18 +141,18 @@ export default function AdminBookingListScreen({ bookings, stats, onBookingChang
   return (
     <View style={styles.wrapper}>
       <View style={styles.tabsRow}>
-        <TouchableOpacity style={styles.activeTab} activeOpacity={0.86}><Text style={styles.activeTabText}>All Bookings</Text></TouchableOpacity>
-        <TouchableOpacity style={styles.tab} activeOpacity={0.86}><Text style={styles.tabText}>Calendar View</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="tab" accessibilityState={{ selected: view === "list" }} onPress={() => setView("list")} style={view === "list" ? styles.activeTab : styles.tab} activeOpacity={0.86}><Text style={view === "list" ? styles.activeTabText : styles.tabText}>All bookings</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="tab" accessibilityState={{ selected: view === "calendar" }} onPress={() => setView("calendar")} style={view === "calendar" ? styles.activeTab : styles.tab} activeOpacity={0.86}><Text style={view === "calendar" ? styles.activeTabText : styles.tabText}>Calendar view</Text></TouchableOpacity>
       </View>
 
       <View style={styles.searchRow}>
         <View style={styles.searchBox}>
           <Ionicons name="search-outline" size={20} color="#687092" />
-          <TextInput placeholder="Search bookings..." placeholderTextColor="#8D93AA" style={styles.searchInput} />
+          <TextInput accessibilityLabel="Search bookings" autoCapitalize="none" autoCorrect={false} clearButtonMode="while-editing" onChangeText={setSearchQuery} placeholder="Search pet, client, service..." placeholderTextColor="#8D93AA" returnKeyType="search" style={styles.searchInput} value={searchQuery} />
         </View>
-        <TouchableOpacity style={styles.filterButton} activeOpacity={0.86}>
+        <TouchableOpacity accessibilityLabel={`Status filter: ${statusFilter}`} accessibilityHint="Cycles through booking statuses" onPress={cycleStatusFilter} style={[styles.filterButton, statusFilter !== "All" && styles.filterButtonActive]} activeOpacity={0.86}>
           <Ionicons name="filter-outline" size={19} color="#1F2756" />
-          <Text style={styles.filterText}>Filter</Text>
+          <Text style={styles.filterText}>{statusFilter}</Text>
         </TouchableOpacity>
       </View>
 
@@ -146,15 +169,16 @@ export default function AdminBookingListScreen({ bookings, stats, onBookingChang
         ))}
       </View>
 
-      <View style={styles.tableCard}>
+      {view === "calendar" ? <BookingCalendar bookings={visibleBookings} /> : <View style={styles.tableCard}>
         <View style={styles.tableHeaderRow}>
           <Text style={styles.tableTitle}>All Bookings</Text>
-          <TouchableOpacity style={styles.sortButton} activeOpacity={0.86}>
-            <Text style={styles.sortText}>Sort by: Date</Text>
-            <Ionicons name="chevron-down" size={16} color="#1F2756" />
+          <TouchableOpacity accessibilityLabel={`Sort by date, ${newestFirst ? "newest first" : "oldest first"}`} onPress={() => setNewestFirst((current) => !current)} style={styles.sortButton} activeOpacity={0.86}>
+            <Text style={styles.sortText}>{newestFirst ? "Newest first" : "Oldest first"}</Text>
+            <Ionicons name={newestFirst ? "arrow-down" : "arrow-up"} size={16} color="#1F2756" />
           </TouchableOpacity>
         </View>
 
+        {visibleBookings.length === 0 ? <View style={styles.emptyState}><Ionicons name="calendar-outline" size={30} color="#5B3DF5" /><Text style={styles.emptyTitle}>No bookings found</Text><Text style={styles.emptyCopy}>Try another search or status filter.</Text></View> : null}
         {visibleBookings.map((booking) => {
           const status = statusStyles[booking.status];
           return (
@@ -193,7 +217,7 @@ export default function AdminBookingListScreen({ bookings, stats, onBookingChang
             </TouchableOpacity>
           );
         })}
-      </View>
+      </View>}
 
       <Modal transparent animationType="fade" visible={Boolean(selectedBooking)} onRequestClose={() => setSelectedBooking(null)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setSelectedBooking(null)}>
@@ -250,6 +274,7 @@ const styles = StyleSheet.create({
   searchBox: { alignItems: "center", backgroundColor: "#FFF", borderColor: "#E5E7F1", borderRadius: 12, borderWidth: 1, flex: 1, flexDirection: "row", gap: 10, paddingHorizontal: 14 },
   searchInput: { color: "#11162B", flex: 1, fontSize: 14, paddingVertical: 12 },
   filterButton: { alignItems: "center", backgroundColor: "#FFF", borderColor: "#E5E7F1", borderRadius: 12, borderWidth: 1, flexDirection: "row", gap: 8, paddingHorizontal: 14 },
+  filterButtonActive: { backgroundColor: "#F3EEFF", borderColor: "#CFC1FF" },
   filterText: { color: "#1F2756", fontWeight: "800" },
   statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   statCard: { alignItems: "center", backgroundColor: "#FFF", borderColor: "#ECECF5", borderRadius: 16, borderWidth: 1, flexDirection: "row", gap: 12, padding: 16, width: "48%" },
@@ -258,6 +283,9 @@ const styles = StyleSheet.create({
   statValue: { color: "#11162B", fontSize: 24, fontWeight: "900" },
   statCaption: { color: "#3B4263", fontSize: 12, fontWeight: "600" },
   tableCard: { backgroundColor: "#FFF", borderColor: "#ECECF5", borderRadius: 18, borderWidth: 1, paddingBottom: 6 },
+  emptyState: { alignItems: "center", borderTopColor: "#ECECF5", borderTopWidth: 1, paddingHorizontal: 24, paddingVertical: 36 },
+  emptyTitle: { color: "#11162B", fontSize: 17, fontWeight: "900", marginTop: 10 },
+  emptyCopy: { color: "#59617F", marginTop: 5, textAlign: "center" },
   tableHeaderRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", padding: 18 },
   tableTitle: { color: "#11162B", fontSize: 19, fontWeight: "900" },
   sortButton: { alignItems: "center", borderColor: "#E5E7F1", borderRadius: 10, borderWidth: 1, flexDirection: "row", gap: 6, paddingHorizontal: 10, paddingVertical: 9 },

@@ -96,7 +96,7 @@ export default function FloatingTabBar({ activeRoute = "home", onQuickAction }: 
               ))}
             </View>
           )}
-        <TouchableOpacity style={[styles.fab, isActionOpen && styles.fabActive]} onPress={() => { setIsMoreOpen(false); setIsActionOpen((current) => !current); }} activeOpacity={0.9}>
+        <TouchableOpacity accessibilityLabel="Create new" accessibilityRole="button" accessibilityState={{ expanded: isActionOpen }} style={[styles.fab, isActionOpen && styles.fabActive]} onPress={() => { setIsMoreOpen(false); setIsActionOpen((current) => !current); }} activeOpacity={0.9}>
           <Ionicons name="add" size={34} color="#FFF" />
         </TouchableOpacity>
         </View>

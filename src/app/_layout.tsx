@@ -10,7 +10,7 @@ import { theme } from "@/lib/theme";
 export default function RootLayout() {
   return (
     <AuthProvider><AuthGate><PushNotificationsProvider>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <Stack
         screenOptions={{
           contentStyle: { backgroundColor: theme.colors.background },
