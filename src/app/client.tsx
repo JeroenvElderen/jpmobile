@@ -142,7 +142,6 @@ export default function ClientScreen() {
       >
         <ClientDashboardHeader
           clientName={dashboardData.clientName}
-          notificationCount={dashboardData.notificationCount}
         />
 
         <NextBookingHero booking={dashboardData.bookings[0]} />
