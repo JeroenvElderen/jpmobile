@@ -3,6 +3,15 @@
     "name": "Jeroen & Paws",
     "slug": "jeroenandpaws-mobile",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/e487e7cb-0301-445f-a211-4972dd5274a3",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 3000
+    },
     "orientation": "portrait",
     "icon": "./assets/images/logo4.png",
     "scheme": "jeroenandpaws",
