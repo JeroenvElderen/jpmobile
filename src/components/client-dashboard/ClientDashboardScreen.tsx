@@ -2,6 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { PageHeader } from "@/components/ui/PageHeader";
+
 type Booking = {
   id: string;
   dayLabel: string;
@@ -88,15 +90,7 @@ export default function ClientDashboardScreen() {
 function Header() {
   return (
     <View style={styles.header}>
-      <View style={styles.topRow}>
-        <TouchableOpacity style={styles.headerIcon}>
-          <Ionicons name="menu-outline" size={31} color="#1D2238" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.headerIcon}>
-          <Ionicons name="notifications-outline" size={27} color="#1D2238" />
-          <View style={styles.badge}><Text style={styles.badgeText}>2</Text></View>
-        </TouchableOpacity>
-      </View>
+      <PageHeader title="Home" />
       <Text style={styles.title}>Good morning, Sarah <Ionicons name="paw-outline" size={29} color="#5B3DF5" /></Text>
       <Text style={styles.subtitle}>Here's what's happening with your pets.</Text>
     </View>
@@ -199,10 +193,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F8F9FD" },
   content: { paddingHorizontal: 22, paddingTop: 60, paddingBottom: 150 },
   header: { marginTop: 12, marginBottom: 28 },
-  topRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: 26 },
-  headerIcon: { alignItems: "center", height: 44, justifyContent: "center", width: 44 },
-  badge: { alignItems: "center", backgroundColor: "#EF4444", borderRadius: 10, height: 20, justifyContent: "center", position: "absolute", right: 4, top: 4, width: 20 },
-  badgeText: { color: "#FFF", fontSize: 11, fontWeight: "800" },
   title: { color: "#101426", fontSize: 31, fontWeight: "800", marginBottom: 8 },
   subtitle: { color: "#2F3864", fontSize: 16, lineHeight: 24 },
   card: { backgroundColor: "#FFF", borderColor: "#ECECF5", borderRadius: 18, borderWidth: 1, marginBottom: 16, padding: 22 },

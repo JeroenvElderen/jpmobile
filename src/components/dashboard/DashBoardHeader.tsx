@@ -1,31 +1,13 @@
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-export default function DashboardHeader({ notificationCount = 0 }: { notificationCount?: number }) {
+import { PageHeader } from "@/components/ui/PageHeader";
+
+export default function DashboardHeader() {
   const todayLabel = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date());
   return (
     <View style={styles.container}>
-      <View style={styles.topRow}>
-        <TouchableOpacity style={styles.iconButton}>
-          <Ionicons
-            name="menu-outline"
-            size={30}
-            color="#1D2238"
-          />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.notification}>
-          <Ionicons
-            name="notifications-outline"
-            size={26}
-            color="#1D2238"
-          />
-
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{notificationCount}</Text>
-          </View>
-        </TouchableOpacity>
-      </View>
+      <PageHeader title="Dashboard" />
 
       <View style={styles.greeting}>
         <Text style={styles.title}>
@@ -62,49 +44,6 @@ const styles = StyleSheet.create({
   container: {
     marginTop: 12,
     marginBottom: 22,
-  },
-
-  topRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 28,
-  },
-
-  iconButton: {
-    width: 44,
-    height: 44,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  notification: {
-    width: 44,
-    height: 44,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  badge: {
-    position: "absolute",
-    right: 6,
-    top: 6,
-
-    width: 18,
-    height: 18,
-
-    borderRadius: 9,
-
-    backgroundColor: "#EF4444",
-
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  badgeText: {
-    color: "#FFF",
-    fontWeight: "700",
-    fontSize: 10,
   },
 
   greeting: {

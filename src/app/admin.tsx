@@ -84,7 +84,7 @@ export default function AdminScreen() {
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        <DashboardHeader notificationCount={dashboardData.notificationCount} />
+        <DashboardHeader />
         <QuickActions onNewBooking={() => setActiveAction("booking")} onAddClient={() => setActiveAction("client")} onAddDog={() => setActiveAction("dog")} />
         <PendingBookingRequestsCard requests={dashboardData.pendingBookingRequests} />
         <PerformanceCard bookingTrend={dashboardData.bookingTrend} revenueTrend={dashboardData.revenueTrend} />

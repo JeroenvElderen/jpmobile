@@ -9,6 +9,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import ClientFloatingTabBar from "@/components/client-dashboard/ClientFloatingTabBar";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { fetchClientProfileData, type ClientProfile } from "@/lib/clientProfileData";
 import { usePushNotifications } from "@/providers/PushNotificationsProvider";
 import { supabase } from "@/lib/supabase";
@@ -124,7 +125,7 @@ export default function ClientProfileScreen() {
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        <ProfileHeader activityCount={profile.recentActivityCount} />
+        <ProfileHeader />
         <ProfileSummary profile={profile} />
         {profileSections.map((section) => (
           <View key={section.title} style={styles.section}>
@@ -151,19 +152,8 @@ export default function ClientProfileScreen() {
   );
 }
 
-function ProfileHeader({ activityCount }: { activityCount: number }) {
-  return (
-    <View style={styles.header}>
-      <TouchableOpacity style={styles.headerIcon} activeOpacity={0.8}>
-        <Ionicons name="menu-outline" size={32} color="#141A33" />
-      </TouchableOpacity>
-      <Text style={styles.headerTitle}>Settings</Text>
-      <TouchableOpacity style={styles.headerIcon} activeOpacity={0.8}>
-        <Ionicons name="notifications-outline" size={27} color="#141A33" />
-        {activityCount ? <View style={styles.badge}><Text style={styles.badgeText}>{Math.min(activityCount, 9)}</Text></View> : null}
-      </TouchableOpacity>
-    </View>
-  );
+function ProfileHeader() {
+  return <PageHeader title="Settings" />;
 }
 
 function ProfileSummary({ profile }: { profile: ClientProfile }) {
@@ -770,27 +760,6 @@ const styles = StyleSheet.create({
   errorMessage: { color: "#70758E", lineHeight: 22, marginBottom: 18, textAlign: "center" },
   retryButton: { backgroundColor: "#5B3DF5", borderRadius: 16, paddingHorizontal: 22, paddingVertical: 14 },
   retryText: { color: "#FFF", fontWeight: "700" },
-  header: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 24,
-    marginTop: 12,
-  },
-  headerIcon: { alignItems: "center", height: 44, justifyContent: "center", width: 44 },
-  headerTitle: { color: "#080D20", fontSize: 28, fontWeight: "800" },
-  badge: {
-    alignItems: "center",
-    backgroundColor: "#EF2852",
-    borderRadius: 12,
-    height: 24,
-    justifyContent: "center",
-    position: "absolute",
-    right: 1,
-    top: 0,
-    width: 24,
-  },
-  badgeText: { color: "#FFF", fontSize: 12, fontWeight: "800" },
   summaryCard: {
     alignItems: "flex-start",
     backgroundColor: "#FBF9FF",
