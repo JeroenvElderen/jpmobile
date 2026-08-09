@@ -55,6 +55,7 @@ export async function completeClientAccount(input: {
   }
 
   const { error: authError } = await supabase.auth.updateUser({
+    email: normalizedEmail,
     password: input.password,
   });
 
