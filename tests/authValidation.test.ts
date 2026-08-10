@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { extractInvite, filterOtp, isEmailIdentifier, isRegistrationLink, isValidIrishPhone, isValidPhone, normalizeIrishPhone, normalizePhone, validateCommon } from "../src/lib/authValidation";
+import { extractInvite, filterOtp, isEmailIdentifier, isRegistrationLink, isValidIrishPhone, isValidPhone, isValidPortalInviteCode, normalizeIrishPhone, normalizePhone, normalizePortalInviteCode, validateCommon } from "../src/lib/authValidation";
 import { ADMIN_EMAIL, isAdminEmail, isAdminUser } from "../src/lib/authRouting";
 import { getFunctionErrorMessage } from "../src/lib/functionErrors";
 
@@ -19,7 +19,13 @@ test("normalizes Irish local mobile numbers for authentication", () => {
   assert.equal(isValidIrishPhone("0833011988"), true);
   assert.equal(isValidIrishPhone("1234"), false);
 });
-test("validates registration and password confirmation", () => { assert.match(validateCommon({ inviteCode:"short",fullName:"J",password:"password",confirmPassword:"password" })!,/Invite/); assert.match(validateCommon({ inviteCode:"12345678",fullName:"J",password:"password",confirmPassword:"different" })!,/match/); assert.equal(validateCommon({ inviteCode:"12345678",fullName:"Jeroen",password:"password",confirmPassword:"password" }),null); });
+test("normalizes and validates website-generated invite codes", () => {
+  assert.equal(normalizePortalInviteCode(" milo-jeroen&paws-2026 "), "MILO-Jeroen&Paws-2026");
+  assert.equal(normalizePortalInviteCode("luna&mr-bear-Jeroen&Paws-2026"), "LUNA&MR-BEAR-Jeroen&Paws-2026");
+  assert.equal(isValidPortalInviteCode("MILO-Jeroen&Paws-2026"), true);
+  assert.equal(isValidPortalInviteCode("MILO-OTHER-2026"), false);
+});
+test("validates registration and password confirmation", () => { assert.match(validateCommon({ inviteCode:"short",fullName:"J",password:"password",confirmPassword:"password" })!,/invite code/i); assert.match(validateCommon({ inviteCode:"MILO-Jeroen&Paws-2026",fullName:"J",password:"password",confirmPassword:"different" })!,/match/); assert.equal(validateCommon({ inviteCode:"MILO-Jeroen&Paws-2026",fullName:"Jeroen",password:"password",confirmPassword:"password" }),null); });
 test("filters and validates OTP input", () => { assert.equal(filterOtp("1a2 34-567"),"123456"); assert.equal(filterOtp("123").length===6,false); });
 test("extracts invite deep links safely", () => {
   assert.equal(extractInvite("jeroenandpaws://register?invite=PAWS%202026"), "PAWS 2026");
