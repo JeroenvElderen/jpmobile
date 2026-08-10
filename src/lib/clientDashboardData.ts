@@ -41,6 +41,7 @@ export type ClientDashboardData = {
   bookings: ClientBooking[];
   pets: ClientPet[];
   activities: ClientActivity[];
+  pendingPayment: { count: number; amountCents: number; currency: string } | null;
 };
 
 type PortalClient = {
@@ -125,7 +126,7 @@ export async function fetchClientDashboardData(): Promise<ClientDashboardData> {
 
   const now = new Date().toISOString();
 
-  const [dogsResult, bookingsResult, activitiesResult] = await Promise.all([
+  const [dogsResult, bookingsResult, activitiesResult, invoicesResult] = await Promise.all([
     supabase
       .from("portal_dogs")
       .select("id, name, breed, age, status, profile_photo_url")
@@ -147,6 +148,11 @@ export async function fetchClientDashboardData(): Promise<ClientDashboardData> {
       .order("created_at", { ascending: false })
       .limit(3)
       .returns<PortalActivity[]>(),
+    supabase
+      .from("portal_invoices")
+      .select("amount_cents, currency")
+      .eq("portal_client_id", client.id)
+      .in("status", ["sent", "pending", "overdue"]),
   ]);
 
   if (dogsResult.error) {
@@ -160,6 +166,9 @@ export async function fetchClientDashboardData(): Promise<ClientDashboardData> {
   if (activitiesResult.error) {
     throw activitiesResult.error;
   }
+  if (invoicesResult.error) throw invoicesResult.error;
+
+  const openInvoices = (invoicesResult.data ?? []) as { amount_cents: number; currency: string }[];
 
   return {
     clientId: client.id,
@@ -168,6 +177,7 @@ export async function fetchClientDashboardData(): Promise<ClientDashboardData> {
     bookings: bookingsResult.data.map(mapBooking),
     pets: dogsResult.data.map(mapPet),
     activities: activitiesResult.data.map(mapActivity),
+    pendingPayment: openInvoices.length ? { count: openInvoices.length, amountCents: openInvoices.reduce((total, invoice) => total + invoice.amount_cents, 0), currency: openInvoices[0].currency || "EUR" } : null,
   };
 }
 

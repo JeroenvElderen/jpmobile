@@ -2,9 +2,9 @@ import { useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-import { createAdminBooking, createAdminClient, createAdminDog, type AdminDashboardData } from "@/lib/adminDashboardData";
+import { createAdminBooking, createAdminClient, createAdminDog, createAdminInvoice, type AdminDashboardData } from "@/lib/adminDashboardData";
 
-type Action = "booking" | "client" | "dog" | null;
+type Action = "booking" | "client" | "dog" | "invoice" | null;
 
 type Props = {
   action: Action;
@@ -19,17 +19,23 @@ const titles = {
   booking: "New booking",
   client: "Add client",
   dog: "Add dog",
+  invoice: "Create invoice",
 };
 
 export default function QuickActionForms({ action, options, onClose, onSaved }: Props) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [selectedDogIds, setSelectedDogIds] = useState<string[]>([]);
+  const [invoiceLines, setInvoiceLines] = useState([{ id: "1", description: "", quantity: "1", price: "" }]);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const updateValue = (key: string, value: string) => {
     setValues((current) => ({ ...current, [key]: value }));
     if (key === "clientId") setSelectedDogIds([]);
+    if (key === "invoiceClientId") {
+      const client = options?.clients.find((item) => item.id === value);
+      if (client) setValues((current) => ({ ...current, invoiceClientId: value, clientName: client.name, clientEmail: client.email, clientPhone: client.phone, clientAddress: client.address }));
+    }
   };
 
   const clientOptions = options?.clients.map((client) => ({ label: client.name, value: client.id })) ?? [];
@@ -43,6 +49,7 @@ export default function QuickActionForms({ action, options, onClose, onSaved }: 
   const handleClose = () => {
     setValues({});
     setSelectedDogIds([]);
+    setInvoiceLines([{ id: "1", description: "", quantity: "1", price: "" }]);
     setError(null);
     onClose();
   };
@@ -70,8 +77,29 @@ export default function QuickActionForms({ action, options, onClose, onSaved }: 
         await createAdminBooking({ clientId: values.clientId, dogIds: selectedDogIds, serviceName: values.serviceName, startsAt: values.startsAt, location: values.location, notes: values.notes });
       }
 
+      if (action === "invoice") {
+        if (!values.clientName?.trim()) throw new Error("Client name is required.");
+        await createAdminInvoice({
+          clientId: values.invoiceClientId,
+          clientName: values.clientName,
+          clientEmail: values.clientEmail,
+          clientPhone: values.clientPhone,
+          dogNames: values.dogNames?.split(","),
+          serviceName: values.serviceName,
+          durationMinutes: values.durationMinutes ? Number(values.durationMinutes) : undefined,
+          billingDays: values.billingDays ? Number(values.billingDays) : undefined,
+          clientAddress: values.clientAddress,
+          currency: values.currency || "EUR",
+          issuedOn: values.issuedOn || new Date().toISOString().slice(0, 10),
+          dueOn: values.dueOn,
+          lineItems: invoiceLines.map((line) => ({ description: line.description, quantity: Number(line.quantity), priceCents: Math.round(Number(line.price) * 100) })),
+          notes: values.notes,
+        });
+      }
+
       setValues({});
       setSelectedDogIds([]);
+      setInvoiceLines([{ id: "1", description: "", quantity: "1", price: "" }]);
       onSaved();
       onClose();
     } catch (submitError) {
@@ -123,10 +151,35 @@ export default function QuickActionForms({ action, options, onClose, onSaved }: 
             </>
           ) : null}
 
+          {action === "invoice" ? (
+            <>
+              <Text style={styles.invoiceIntro}>Create a pending invoice and notify linked clients immediately. They can open their payments screen straight from the alert.</Text>
+              <SelectField label="Saved client (optional)" value={values.invoiceClientId} options={clientOptions} placeholder="Or enter client details below" onSelect={(value) => updateValue("invoiceClientId", value)} />
+              <Field label="Client name" placeholder="Start typing client name" value={values.clientName} onChangeText={(value) => updateValue("clientName", value)} />
+              <Field label="Client email" keyboardType="email-address" autoCapitalize="none" value={values.clientEmail} onChangeText={(value) => updateValue("clientEmail", value)} />
+              <Field label="Client WhatsApp phone" keyboardType="phone-pad" value={values.clientPhone} onChangeText={(value) => updateValue("clientPhone", value)} />
+              <Field label="Dog names" placeholder="Comma separated" value={values.dogNames} onChangeText={(value) => updateValue("dogNames", value)} />
+              <Field label="Service" placeholder="Walk, boarding, day care…" value={values.serviceName} onChangeText={(value) => updateValue("serviceName", value)} />
+              <Field label="Minutes" placeholder="Skip for boarding/day care" keyboardType="number-pad" value={values.durationMinutes} onChangeText={(value) => updateValue("durationMinutes", value)} />
+              <Field label="Days this week" keyboardType="number-pad" value={values.billingDays} onChangeText={(value) => updateValue("billingDays", value)} />
+              <Field label="Billing address" multiline value={values.clientAddress} onChangeText={(value) => updateValue("clientAddress", value)} />
+              <Field label="Currency" value={values.currency ?? "EUR"} onChangeText={(value) => updateValue("currency", value)} autoCapitalize="characters" />
+              <Field label="Issue date" placeholder="YYYY-MM-DD" value={values.issuedOn ?? new Date().toISOString().slice(0, 10)} onChangeText={(value) => updateValue("issuedOn", value)} />
+              <Field label="Due date" placeholder="YYYY-MM-DD" value={values.dueOn} onChangeText={(value) => updateValue("dueOn", value)} />
+              <View style={styles.invoiceLineHeader}><Text style={styles.invoiceLineTitle}>Invoice lines</Text><TouchableOpacity onPress={() => setInvoiceLines((lines) => [...lines, { id: String(Date.now()), description: "", quantity: "1", price: "" }])}><Text style={styles.addLine}>+ Add line</Text></TouchableOpacity></View>
+              {invoiceLines.map((line, index) => <View key={line.id} style={styles.lineCard}>
+                <Field label={`Line ${index + 1}`} placeholder="Description" value={line.description} onChangeText={(description) => setInvoiceLines((lines) => lines.map((item) => item.id === line.id ? { ...item, description } : item))} />
+                <View style={styles.lineNumbers}><View style={styles.lineNumber}><Field label="Qty" keyboardType="decimal-pad" value={line.quantity} onChangeText={(quantity) => setInvoiceLines((lines) => lines.map((item) => item.id === line.id ? { ...item, quantity } : item))} /></View><View style={styles.lineNumber}><Field label="Price" keyboardType="decimal-pad" value={line.price} onChangeText={(price) => setInvoiceLines((lines) => lines.map((item) => item.id === line.id ? { ...item, price } : item))} /></View></View>
+                {invoiceLines.length > 1 ? <TouchableOpacity onPress={() => setInvoiceLines((lines) => lines.filter((item) => item.id !== line.id))}><Text style={styles.removeLine}>Remove line</Text></TouchableOpacity> : null}
+              </View>)}
+              <Field label="Notes shown in backend" multiline value={values.notes} onChangeText={(value) => updateValue("notes", value)} />
+            </>
+          ) : null}
+
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <TouchableOpacity style={styles.submitButton} activeOpacity={0.86} onPress={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? <ActivityIndicator color="#FFF" /> : <Text style={styles.submitText}>Save</Text>}
+            {isSubmitting ? <ActivityIndicator color="#FFF" /> : <Text style={styles.submitText}>{action === "invoice" ? "Create pending invoice" : "Save"}</Text>}
           </TouchableOpacity>
         </ScrollView>
         </View>
@@ -199,6 +252,14 @@ const styles = StyleSheet.create({
   optionTextSelected: { color: "#5B3DF5" },
   emptyOption: { color: "#A0A4B8", fontWeight: "600", paddingVertical: 10 },
   selectedHint: { color: "#70758E", fontSize: 12, fontWeight: "600" },
+  invoiceIntro: { color: "#70758E", lineHeight: 21 },
+  invoiceLineHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginTop: 6 },
+  invoiceLineTitle: { color: "#1D2238", fontSize: 18, fontWeight: "800" },
+  addLine: { color: "#5B3DF5", fontWeight: "800", padding: 8 },
+  lineCard: { backgroundColor: "#FAFAFD", borderColor: "#E5E7EF", borderRadius: 18, borderWidth: 1, gap: 12, padding: 14 },
+  lineNumbers: { flexDirection: "row", gap: 12 },
+  lineNumber: { flex: 1 },
+  removeLine: { color: "#D92D20", fontWeight: "700", textAlign: "right" },
   error: { color: "#E11D48", fontWeight: "600" },
   submitButton: { alignItems: "center", backgroundColor: "#5B3DF5", borderRadius: 16, paddingVertical: 16 },
   submitText: { color: "#FFF", fontSize: 16, fontWeight: "700" },

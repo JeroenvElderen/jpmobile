@@ -11,7 +11,7 @@ import FloatingTabBar from "@/components/dashboard/FloatingTabBar";
 import { fetchAdminDashboardData, type AdminDashboardData } from "@/lib/adminDashboardData";
 import { supabase } from "@/lib/supabase";
 
-type QuickAction = "booking" | "client" | "dog" | null;
+type QuickAction = "booking" | "client" | "dog" | "invoice" | null;
 
 export default function AdminScreen() {
   const [dashboardData, setDashboardData] = useState<AdminDashboardData | null>(null);
@@ -85,7 +85,7 @@ export default function AdminScreen() {
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <DashboardHeader />
-        <QuickActions onNewBooking={() => setActiveAction("booking")} onAddClient={() => setActiveAction("client")} onAddDog={() => setActiveAction("dog")} />
+        <QuickActions onNewBooking={() => setActiveAction("booking")} onAddClient={() => setActiveAction("client")} onAddDog={() => setActiveAction("dog")} onCreateInvoice={() => setActiveAction("invoice")} />
         <PendingBookingRequestsCard requests={dashboardData.pendingBookingRequests} />
         <PerformanceCard bookingTrend={dashboardData.bookingTrend} revenueTrend={dashboardData.revenueTrend} />
         <RecentActivity activities={dashboardData.activities} />
