@@ -17,12 +17,17 @@
     "scheme": "jeroenandpaws",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/images/logo4.svg",
+      "icon": "./assets/images/logo4.png",
       "bundleIdentifier": "com.jer0m3.jeroenandpawsmobile",
       "associatedDomains": [
         "applinks:jeroenandpaws.com",
+        "applinks:www.jeroenandpaws.com",
+        "applinks:jeroenandpaws.com",
         "applinks:www.jeroenandpaws.com"
-      ]
+      ],
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "softwareKeyboardLayoutMode": "resize",
