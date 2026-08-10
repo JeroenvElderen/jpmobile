@@ -7,7 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
 
 type RouteKey = "home" | "bookings" | "dogs" | "clients" | "galleries";
-type AdminQuickAction = "booking" | "client" | "dog";
+type AdminQuickAction = "booking" | "client" | "dog" | "invoice";
 
 type Props = {
   activeRoute?: RouteKey;
@@ -18,6 +18,7 @@ const quickActions: { action: AdminQuickAction; icon: keyof typeof Ionicons.glyp
   { action: "booking", icon: "calendar-outline", title: "New booking", helper: "Schedule care for a client." },
   { action: "client", icon: "person-add-outline", title: "Add client", helper: "Create a private client profile." },
   { action: "dog", icon: "paw-outline", title: "Add dog", helper: "Attach a pet to a client." },
+  { action: "invoice", icon: "document-text-outline", title: "Create invoice", helper: "Send a pending payment to a client." },
 ];
 
 export default function FloatingTabBar({ activeRoute = "home", onQuickAction }: Props) {

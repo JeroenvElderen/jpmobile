@@ -19,6 +19,7 @@ type AdminAction =
   | { type: "update-dog"; payload: { dogId: string; breed?: string; age?: string; notes?: string } }
   | { type: "delete-dog"; payload: { dogId: string } }
   | { type: "create-booking"; payload: { clientId: string; dogId?: string; dogIds?: string[]; serviceName: string; startsAt: string; location?: string; notes?: string } }
+  | { type: "create-invoice"; payload: InvoiceInput }
   | { type: "update-booking"; payload: { bookingId: string; clientId?: string; dogId?: string; dogIds?: string[]; serviceName?: string; startsAt?: string; location?: string; notes?: string; status?: string } }
   | { type: "cancel-booking"; payload: { bookingId: string } }
   | { type: "reject-booking"; payload: { bookingId: string } }
@@ -44,7 +45,11 @@ type PortalClientOption = {
   id: string;
   full_name: string;
   address: string | null;
+  email: string | null;
+  phone: string | null;
 };
+
+type InvoiceInput = { clientId?: string; clientName: string; clientEmail?: string; clientPhone?: string; dogNames?: string[]; serviceName?: string; durationMinutes?: number; billingDays?: number; clientAddress?: string; currency: string; issuedOn: string; dueOn?: string; lineItems: { description: string; quantity: number; priceCents: number }[]; notes?: string };
 
 type PortalDogOption = {
   id: string;
@@ -133,6 +138,11 @@ Deno.serve(async (req) => {
       return json({ data: await fetchDashboard(adminClient) });
     }
 
+    if (action.type === "create-invoice") {
+      await createInvoiceRecord(adminClient, action.payload);
+      return json({ data: await fetchDashboard(adminClient) });
+    }
+
     if (action.type === "update-booking") {
       await updateBookingRecord(adminClient, action.payload);
       return json({ data: await fetchDashboard(adminClient) });
@@ -197,7 +207,7 @@ async function fetchDashboard(supabase: ReturnType<typeof createClient>) {
       .select("id, activity_type, title, body, created_at")
       .order("created_at", { ascending: false })
       .limit(5),
-    supabase.from("portal_clients").select("id, full_name, address").order("full_name", { ascending: true }),
+    supabase.from("portal_clients").select("id, full_name, email, phone, address").order("full_name", { ascending: true }),
     supabase.from("portal_dogs").select("id, client_id, name").order("name", { ascending: true }),
     supabase.from("portal_bookings").select("service_name").not("service_name", "is", null),
   ]);
@@ -283,6 +293,47 @@ async function updateDogRecord(supabase: ReturnType<typeof createClient>, input:
 async function deleteDogRecord(supabase: ReturnType<typeof createClient>, dogId: string) {
   const { error } = await supabase.from("portal_dogs").delete().eq("id", required(dogId, "Dog ID"));
   if (error) throw error;
+}
+
+async function createInvoiceRecord(supabase: ReturnType<typeof createClient>, input: InvoiceInput) {
+  const lines = input.lineItems.filter((line) => line.description.trim() && Number.isFinite(line.quantity) && line.quantity > 0 && Number.isFinite(line.priceCents) && line.priceCents >= 0);
+  if (!lines.length) throw new Error("Add at least one complete invoice line.");
+  const amountCents = lines.reduce((total, line) => total + Math.round(line.quantity * line.priceCents), 0);
+  if (amountCents <= 0) throw new Error("Invoice total must be greater than zero.");
+
+  const stamp = new Date().toISOString().replace(/\D/g, "").slice(0, 14);
+  const invoiceNumber = `INV-${stamp}`;
+  const paymentReference = `${invoiceNumber}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+  const issuedOn = parseDate(input.issuedOn, "issue date");
+  const dueOn = input.dueOn?.trim() ? parseDate(input.dueOn, "due date") : null;
+
+  const invoice = {
+    portal_client_id: input.clientId?.trim() || null,
+    invoice_number: invoiceNumber,
+    client_name: required(input.clientName, "Client name"),
+    client_email: input.clientEmail?.trim() || null,
+    client_phone: input.clientPhone?.trim() || null,
+    client_address: input.clientAddress?.trim() || null,
+    dog_names: input.dogNames?.map((name) => name.trim()).filter(Boolean) ?? [],
+    service_name: input.serviceName?.trim() || null,
+    duration_minutes: input.durationMinutes || null,
+    billing_days: input.billingDays || null,
+    issued_on: issuedOn.toISOString().slice(0, 10),
+    due_on: dueOn?.toISOString().slice(0, 10) || null,
+    amount_cents: amountCents,
+    currency: input.currency?.trim().toUpperCase() || "EUR",
+    status: "pending",
+    payment_reference: paymentReference,
+    payment_title: input.serviceName?.trim() || lines[0].description.trim(),
+    line_items: lines.map((line) => ({ description: line.description.trim(), quantity: line.quantity, price_cents: line.priceCents })),
+    notes: input.notes?.trim() || null,
+  };
+
+  const { error } = await supabase.from("portal_invoices").insert(invoice);
+  if (error) throw error;
+  if (invoice.portal_client_id) {
+    await notifyClient(supabase, invoice.portal_client_id, "New payment pending", `${invoice.payment_title} — ${formatMoney(amountCents, invoice.currency)} is ready to pay.`, "/client/profile?open=payments", "invoice_pending");
+  }
 }
 
 async function createBookingRecord(supabase: ReturnType<typeof createClient>, input: { clientId: string; dogId?: string; dogIds?: string[]; serviceName: string; startsAt: string; location?: string; notes?: string }) {
@@ -396,7 +447,7 @@ function buildFormOptions(clients: PortalClientOption[], dogs: PortalDogOption[]
   }, {});
 
   return {
-    clients: clients.map((client) => ({ id: client.id, name: client.full_name, address: client.address || "" })),
+    clients: clients.map((client) => ({ id: client.id, name: client.full_name, email: client.email || "", phone: client.phone || "", address: client.address || "" })),
     dogsByClient: Object.fromEntries(
       Object.entries(dogsByClient).map(([clientId, clientDogs]) => [
         clientId,
@@ -467,6 +518,10 @@ function required(value: string | undefined, label: string) {
   const trimmed = value?.trim();
   if (!trimmed) throw new Error(`${label} is required.`);
   return trimmed;
+}
+
+function formatMoney(amountCents: number, currency: string) {
+  return new Intl.NumberFormat("en-IE", { style: "currency", currency }).format(amountCents / 100);
 }
 
 function startOfDay(date: Date) {

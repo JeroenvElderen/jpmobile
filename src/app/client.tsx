@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useRouter } from "expo-router";
 
 import ClientDashboardHeader from "@/components/client-dashboard/ClientDashboardHeader";
 import ClientRecentActivityList from "@/components/client-dashboard/ClientRecentActivityList";
@@ -12,6 +13,7 @@ import { fetchClientDashboardData, type ClientBooking, type ClientDashboardData 
 import { supabase } from "@/lib/supabase";
 
 export default function ClientScreen() {
+  const router = useRouter();
   const [dashboardData, setDashboardData] = useState<ClientDashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -71,6 +73,7 @@ export default function ClientScreen() {
         },
         refreshDashboard,
       )
+      .on("postgres_changes", { event: "*", schema: "public", table: "portal_invoices", filter: `portal_client_id=eq.${dashboardData.clientId}` }, refreshDashboard)
       .on(
         "postgres_changes",
         {
@@ -145,6 +148,12 @@ export default function ClientScreen() {
         />
 
         <NextBookingHero booking={dashboardData.bookings[0]} />
+
+        {dashboardData.pendingPayment ? <TouchableOpacity style={styles.paymentCard} activeOpacity={0.86} onPress={() => router.push("/client/profile?open=payments")}>
+          <View style={styles.paymentIcon}><Ionicons name="card-outline" size={24} color="#FFF" /></View>
+          <View style={styles.paymentCopy}><Text style={styles.paymentEyebrow}>{dashboardData.pendingPayment.count === 1 ? "Payment ready" : `${dashboardData.pendingPayment.count} payments ready`}</Text><Text style={styles.paymentAmount}>{new Intl.NumberFormat(undefined, { style: "currency", currency: dashboardData.pendingPayment.currency }).format(dashboardData.pendingPayment.amountCents / 100)}</Text><Text style={styles.paymentHint}>Tap to review and pay securely with Revolut</Text></View>
+          <Ionicons name="chevron-forward" size={22} color="#5B3DF5" />
+        </TouchableOpacity> : null}
 
         <ClientSectionCard title="Upcoming bookings">
           <UpcomingBookingsList bookings={dashboardData.bookings} onBookingChanged={() => loadDashboard({ showLoading: false })} />
@@ -226,6 +235,12 @@ const styles = StyleSheet.create({
     height: 68,
     width: 68,
   },
+  paymentCard: { alignItems: "center", backgroundColor: "#F3EEFF", borderColor: "#D9CCFF", borderRadius: 22, borderWidth: 1, flexDirection: "row", gap: 14, marginBottom: 22, padding: 16 },
+  paymentIcon: { alignItems: "center", backgroundColor: "#5B3DF5", borderRadius: 16, height: 48, justifyContent: "center", width: 48 },
+  paymentCopy: { flex: 1 },
+  paymentEyebrow: { color: "#5B3DF5", fontSize: 12, fontWeight: "900", letterSpacing: 0.8, textTransform: "uppercase" },
+  paymentAmount: { color: "#1D2238", fontSize: 23, fontWeight: "900", marginTop: 2 },
+  paymentHint: { color: "#5B668D", fontSize: 12, fontWeight: "600", marginTop: 2 },
   heroCard: {
     alignItems: "center",
     backgroundColor: "#FFF",

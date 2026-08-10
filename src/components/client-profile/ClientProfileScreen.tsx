@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import * as Linking from "expo-linking";
 import * as Notifications from "expo-notifications";
 import * as WebBrowser from "expo-web-browser";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
@@ -54,6 +54,11 @@ export default function ClientProfileScreen() {
   const [activePopup, setActivePopup] = useState<ProfilePopupMode | null>(null);
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
+  const { open } = useLocalSearchParams<{ open?: string }>();
+
+  useEffect(() => {
+    if (open === "payments") setActivePopup("payments");
+  }, [open]);
 
   const loadProfile = useCallback(async ({ showLoading = true }: { showLoading?: boolean } = {}) => {
     if (showLoading) setIsLoading(true);

@@ -23,7 +23,7 @@ export type AdminActivityItem = {
   time: string;
 };
 
-export type AdminFormClientOption = { id: string; name: string; address: string };
+export type AdminFormClientOption = { id: string; name: string; email: string; phone: string; address: string };
 export type AdminFormDogOption = { id: string; ids: string[]; name: string };
 
 export type AdminDashboardData = {
@@ -66,6 +66,12 @@ export async function createAdminDog(input: { clientId: string; name: string; br
 
 export async function createAdminBooking(input: { clientId: string; dogId?: string; dogIds?: string[]; serviceName: string; startsAt: string; location?: string; notes?: string }) {
   await invokeAdminDashboard({ type: "create-booking", payload: input });
+}
+
+export type AdminInvoiceLine = { description: string; quantity: number; priceCents: number };
+
+export async function createAdminInvoice(input: { clientId?: string; clientName: string; clientEmail?: string; clientPhone?: string; dogNames?: string[]; serviceName?: string; durationMinutes?: number; billingDays?: number; clientAddress?: string; currency: string; issuedOn: string; dueOn?: string; lineItems: AdminInvoiceLine[]; notes?: string }) {
+  await invokeAdminDashboard({ type: "create-invoice", payload: input });
 }
 
 export async function updateAdminBooking(input: { bookingId: string; clientId?: string; dogId?: string; dogIds?: string[]; serviceName?: string; startsAt?: string; location?: string; notes?: string; status?: string }) {

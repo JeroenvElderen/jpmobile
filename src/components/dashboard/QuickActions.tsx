@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 import QuickAction from "./QuickAction";
 
-export default function QuickActions({ onNewBooking, onAddClient, onAddDog }: { onNewBooking?: () => void; onAddClient?: () => void; onAddDog?: () => void }) {
+export default function QuickActions({ onNewBooking, onAddClient, onAddDog, onCreateInvoice }: { onNewBooking?: () => void; onAddClient?: () => void; onAddDog?: () => void; onCreateInvoice?: () => void }) {
   return (
     <View style={styles.container}>
       <Text style={styles.heading}>Quick Actions</Text>
@@ -36,6 +36,7 @@ export default function QuickActions({ onNewBooking, onAddClient, onAddDog }: { 
           icon="document-text-outline"
           color="#F97316"
           background="#FFF5EB"
+          onPress={onCreateInvoice}
         />
       </View>
     </View>
