@@ -19,13 +19,14 @@ test("normalizes Irish local mobile numbers for authentication", () => {
   assert.equal(isValidIrishPhone("0833011988"), true);
   assert.equal(isValidIrishPhone("1234"), false);
 });
-test("normalizes and validates website-generated invite codes", () => {
-  assert.equal(normalizePortalInviteCode(" milo-jeroen&paws-2026 "), "MILO-Jeroen&Paws-2026");
-  assert.equal(normalizePortalInviteCode("luna&mr-bear-Jeroen&Paws-2026"), "LUNA&MR-BEAR-Jeroen&Paws-2026");
-  assert.equal(isValidPortalInviteCode("MILO-Jeroen&Paws-2026"), true);
-  assert.equal(isValidPortalInviteCode("MILO-OTHER-2026"), false);
+test("normalizes and validates opaque website-generated registration codes", () => {
+  assert.equal(normalizePortalInviteCode(" Ab3dE-91_x "), "Ab3dE-91_x");
+  assert.equal(normalizePortalInviteCode("https://jeroenandpaws.com/register?invite=Ab3dE-91_x"), "Ab3dE-91_x");
+  assert.equal(isValidPortalInviteCode("Ab3dE-91_x"), true);
+  assert.equal(isValidPortalInviteCode(""), false);
+  assert.equal(isValidPortalInviteCode("ABC 123"), false);
 });
-test("validates registration and password confirmation", () => { assert.match(validateCommon({ inviteCode:"short",fullName:"J",password:"password",confirmPassword:"password" })!,/invite code/i); assert.match(validateCommon({ inviteCode:"MILO-Jeroen&Paws-2026",fullName:"J",password:"password",confirmPassword:"different" })!,/match/); assert.equal(validateCommon({ inviteCode:"MILO-Jeroen&Paws-2026",fullName:"Jeroen",password:"password",confirmPassword:"password" }),null); });
+test("validates registration and password confirmation", () => { assert.match(validateCommon({ inviteCode:"",fullName:"J",password:"password",confirmPassword:"password" })!,/registration code/i); assert.match(validateCommon({ inviteCode:"Ab3dE-91_x",fullName:"J",password:"password",confirmPassword:"different" })!,/match/); assert.equal(validateCommon({ inviteCode:"Ab3dE-91_x",fullName:"Jeroen",password:"password",confirmPassword:"password" }),null); });
 test("filters and validates OTP input", () => { assert.equal(filterOtp("1a2 34-567"),"123456"); assert.equal(filterOtp("123").length===6,false); });
 test("extracts invite deep links safely", () => {
   assert.equal(extractInvite("jeroenandpaws://register?invite=PAWS%202026"), "PAWS 2026");
