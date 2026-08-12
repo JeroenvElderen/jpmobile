@@ -58,7 +58,8 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "release:stores": "eas build --platform all --profile production --auto-submit",
-    "release:update": "eas update --channel production",
+    "release:update:android": "npx eas update --channel production --platform android",
+    "release:update:ios": "npx eas update --channel production --platform ios",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
     "test": "rm -rf .test-dist && tsc --ignoreConfig --module node16 --moduleResolution node16 --target es2022 --types node --esModuleInterop --outDir .test-dist tests/authValidation.test.ts src/lib/authValidation.ts src/lib/authRouting.ts src/lib/functionErrors.ts && node --test .test-dist/tests/*.test.js"
