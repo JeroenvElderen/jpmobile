@@ -53,6 +53,37 @@ If the command appears to stop before Gradle begins, start an Android Virtual De
 
 This project targets Expo SDK 57. Use the [versioned Expo 57 documentation](https://docs.expo.dev/versions/v57.0.0/) rather than unversioned setup instructions.
 
+## Releasing to the app stores
+
+Build and submit a new production binary for both stores with one command:
+
+```bash
+npm run release:stores
+```
+
+The production profile creates an Android App Bundle and an iOS store build,
+increments both store build numbers, and submits successful builds to the Google
+Play production track and App Store Connect. Before the first run, authenticate
+with EAS and configure the Google Play service-account and App Store Connect
+credentials when prompted. Google Play must already have had its first release
+uploaded manually; this app satisfies that requirement.
+
+Submission does not bypass either store's review process. Google Play can roll
+out the submitted production release after its required review, while iOS arrives
+in App Store Connect/TestFlight and must still be selected and submitted for App
+Review. This is especially important while the initial iOS app is pending.
+
+For JavaScript, styling, or asset-only changes that do not require a new native
+binary or store review, publish an EAS Update instead:
+
+```bash
+npm run release:update -- --message "Describe the change"
+```
+
+Only installed production binaries with a matching runtime version receive that
+update. Use `release:stores` whenever native dependencies, permissions, Expo app
+configuration, or the runtime version changes.
+
 Push registration also requires the checked-in Supabase migration and Edge Function to be deployed:
 
 ```bash
