@@ -17,6 +17,8 @@ Add these Authentication redirect URLs to the Supabase project's allow-list:
 
 Invite links can use either `jeroenandpaws://register?invite=CODE` or the install-aware HTTPS form `https://jeroenandpaws.com/register?invite=CODE` (the `www` host is supported too). The app opens registration and pre-fills—but never submits—the invite. Rebuild native apps after changing linking configuration.
 
+The registration form accepts the website generator's `DOG-NAME-Jeroen&Paws-YEAR` codes (including multiple dog names joined with `&`) and sends the normalized code to the website authentication endpoints. The website backend must remain the authority: look up the submitted code, reject missing/expired/used codes, and atomically mark a single-use code as consumed when account creation succeeds. Do not reproduce that authorization decision in the mobile bundle; generator-format validation in the app is only user feedback and is not a security boundary.
+
 For HTTPS invite links to open an installed app, the website must serve valid platform association files:
 
 - `https://jeroenandpaws.com/.well-known/apple-app-site-association` (and the `www` host) with app ID `TEAM_ID.com.jer0m3.jeroenandpawsmobile` and `/register*` allowed.
