@@ -10,11 +10,12 @@ import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Scroll
 
 import ClientFloatingTabBar from "@/components/client-dashboard/ClientFloatingTabBar";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { deleteAccount } from "@/lib/accountDeletion";
 import { fetchClientProfileData, type ClientProfile } from "@/lib/clientProfileData";
 import { usePushNotifications } from "@/providers/PushNotificationsProvider";
 import { supabase } from "@/lib/supabase";
 
-type ProfilePopupMode = "personal" | "password" | "notifications" | "payments" | "contact";
+type ProfilePopupMode = "personal" | "password" | "notifications" | "payments" | "contact" | "delete";
 
 type ProfileItem = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -42,6 +43,12 @@ const profileSections: ProfileSection[] = [
     title: "Support",
     items: [
       { icon: "chatbox-ellipses-outline", title: "Contact Us", subtitle: "Get in touch by WhatsApp, phone, or email", popupMode: "contact" },
+    ],
+  },
+  {
+    title: "Danger zone",
+    items: [
+      { icon: "trash-outline", title: "Delete Account", subtitle: "Permanently delete your account and all data", popupMode: "delete" },
     ],
   },
 ];
@@ -303,6 +310,10 @@ function ProfilePopup({ mode, profile, onClose, onSaved }: { mode: ProfilePopupM
     return <ContactSupportPopup visible={Boolean(mode)} profile={profile} onClose={onClose} />;
   }
 
+  if (mode === "delete") {
+    return <DeleteAccountPopup visible={Boolean(mode)} accountEmail={profile.email} onClose={onClose} />;
+  }
+
   const isPersonal = mode === "personal";
 
   return (
@@ -337,6 +348,64 @@ function ProfilePopup({ mode, profile, onClose, onSaved }: { mode: ProfilePopupM
 
           <TouchableOpacity style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} activeOpacity={0.86} disabled={isSaving} onPress={isPersonal ? handleSavePersonal : handleSavePassword}>
             <Text style={styles.saveButtonText}>{isSaving ? "Saving..." : "Save changes"}</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+function DeleteAccountPopup({ visible, accountEmail, onClose }: { visible: boolean; accountEmail: string; onClose: () => void }) {
+  const [email, setEmail] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const router = useRouter();
+  const matches = email.trim().toLowerCase() === accountEmail.trim().toLowerCase();
+
+  useEffect(() => {
+    if (visible) { setEmail(""); setDeleteError(null); }
+  }, [visible]);
+
+  const handleDelete = async () => {
+    if (!matches || isDeleting) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteAccount(email);
+      await AsyncStorage.removeItem("clientNotificationPreferences");
+      await supabase.auth.signOut({ scope: "local" });
+      onClose();
+      router.replace("/(auth)/login");
+      Alert.alert("Account deleted", "Your account and account data have been permanently deleted.");
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "Unable to delete your account.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
+      <KeyboardAvoidingView style={styles.popupContainer} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <PopupHeader title="Delete Account" onClose={onClose} />
+        <ScrollView contentContainerStyle={styles.popupContent} keyboardShouldPersistTaps="handled">
+          <View style={styles.deleteWarning}>
+            <Ionicons name="warning-outline" size={32} color="#C42121" />
+            <View style={styles.deleteWarningCopy}>
+              <Text style={styles.deleteWarningTitle}>This cannot be undone</Text>
+              <Text style={styles.deleteWarningText}>Your profile, pets, bookings, galleries, photos, invoices, notifications, and login will be permanently deleted.</Text>
+            </View>
+          </View>
+          <Text style={styles.popupIntro}>To confirm, enter the email address used for this account:</Text>
+          <Text style={styles.confirmationEmail}>{accountEmail}</Text>
+          {deleteError ? <Text style={styles.formError}>{deleteError}</Text> : null}
+          <ProfileField label="Account email" value={email} onChangeText={setEmail} autoComplete="email" keyboardType="email-address" autoCapitalize="none" />
+          <TouchableOpacity style={[styles.deleteButton, (!matches || isDeleting) && styles.saveButtonDisabled]} disabled={!matches || isDeleting} activeOpacity={0.86} onPress={handleDelete}>
+            {isDeleting ? <ActivityIndicator color="#FFF" /> : <Ionicons name="trash-outline" size={21} color="#FFF" />}
+            <Text style={styles.deleteButtonText}>{isDeleting ? "Deleting everything..." : "Permanently delete account"}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.secondaryButton} disabled={isDeleting} onPress={onClose}>
+            <Text style={styles.secondaryButtonText}>Keep my account</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -830,6 +899,13 @@ const styles = StyleSheet.create({
     paddingVertical: 19,
   },
   logoutText: { color: "#EF2929", fontSize: 17, fontWeight: "800" },
+  deleteWarning: { alignItems: "flex-start", backgroundColor: "#FFF0F0", borderColor: "#FFD0D0", borderRadius: 18, borderWidth: 1, flexDirection: "row", gap: 14, marginBottom: 22, padding: 18 },
+  deleteWarningCopy: { flex: 1 },
+  deleteWarningTitle: { color: "#A71919", fontSize: 18, fontWeight: "900", marginBottom: 7 },
+  deleteWarningText: { color: "#8A3030", fontSize: 14, fontWeight: "600", lineHeight: 21 },
+  confirmationEmail: { color: "#10162C", fontSize: 17, fontWeight: "900", marginBottom: 20, marginTop: -8 },
+  deleteButton: { alignItems: "center", backgroundColor: "#C42121", borderRadius: 16, flexDirection: "row", gap: 9, justifyContent: "center", marginTop: 10, paddingVertical: 18 },
+  deleteButtonText: { color: "#FFF", fontSize: 17, fontWeight: "900" },
   popupContainer: { backgroundColor: "#F8F9FD", flex: 1 },
   popupHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 18, paddingTop: 56, paddingBottom: 18 },
   popupClose: { alignItems: "center", height: 44, justifyContent: "center", width: 44 },
