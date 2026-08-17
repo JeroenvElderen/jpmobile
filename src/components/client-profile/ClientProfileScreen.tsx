@@ -67,6 +67,17 @@ export default function ClientProfileScreen() {
     if (open === "payments") setActivePopup("payments");
   }, [open]);
 
+  const closeProfilePopup = useCallback(() => {
+    setActivePopup(null);
+
+    // Payment-ready links use a search param to open the popup. Remove that
+    // one-shot navigation state when the popup closes so it cannot remain on
+    // the Settings route while the user switches tabs.
+    if (open === "payments") {
+      router.setParams({ open: undefined });
+    }
+  }, [open, router]);
+
   const loadProfile = useCallback(async ({ showLoading = true }: { showLoading?: boolean } = {}) => {
     if (showLoading) setIsLoading(true);
     setError(null);
@@ -158,7 +169,7 @@ export default function ClientProfileScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      <ProfilePopup mode={activePopup} profile={profile} onClose={() => setActivePopup(null)} onSaved={() => loadProfile({ showLoading: false })} />
+      <ProfilePopup mode={activePopup} profile={profile} onClose={closeProfilePopup} onSaved={() => loadProfile({ showLoading: false })} />
       <ClientFloatingTabBar activeRoute="profile" />
     </View>
   );
