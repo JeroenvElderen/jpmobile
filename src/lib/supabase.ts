@@ -1,21 +1,37 @@
 import "react-native-url-polyfill/auto";
 
-import * as SecureStore from "expo-secure-store";
-import { createClient } from "@supabase/supabase-js";
+import { AppState, Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { createClient, processLock } from "@supabase/supabase-js";
+
 import { config } from "@/lib/config";
 
-const ExpoSecureStorage = {
-  getItem: (key: string) => SecureStore.getItemAsync(key),
-  setItem: (key: string, value: string) =>
-    SecureStore.setItemAsync(key, value),
-  removeItem: (key: string) => SecureStore.deleteItemAsync(key),
-};
+export const supabase = createClient(
+  config.supabaseUrl,
+  config.supabaseAnonKey,
+  {
+    auth: {
+      ...(Platform.OS !== "web"
+        ? {
+            storage: AsyncStorage,
+          }
+        : {}),
 
-export const supabase = createClient(config.supabaseUrl, config.supabaseAnonKey, {
-  auth: {
-    storage: ExpoSecureStorage,
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
-  },
-});
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false,
+      lock: processLock,
+    },
+  }
+);
+
+// Keep Supabase token refreshing while the app is active.
+if (Platform.OS !== "web") {
+  AppState.addEventListener("change", (state) => {
+    if (state === "active") {
+      supabase.auth.startAutoRefresh();
+    } else {
+      supabase.auth.stopAutoRefresh();
+    }
+  });
+}
