@@ -149,7 +149,7 @@ export default function ClientScreen() {
 
         <NextBookingHero booking={dashboardData.bookings[0]} />
 
-        {dashboardData.pendingPayment ? <TouchableOpacity style={styles.paymentCard} activeOpacity={0.86} onPress={() => router.push("/client/profile?open=payments")}>
+        {dashboardData.pendingPayment ? <TouchableOpacity style={styles.paymentCard} activeOpacity={0.86} onPress={() => router.replace({ pathname: "/client/profile", params: { open: "payments" } })}>
           <View style={styles.paymentIcon}><Ionicons name="card-outline" size={24} color="#FFF" /></View>
           <View style={styles.paymentCopy}><Text style={styles.paymentEyebrow}>{dashboardData.pendingPayment.count === 1 ? "Payment ready" : `${dashboardData.pendingPayment.count} payments ready`}</Text><Text style={styles.paymentAmount}>{new Intl.NumberFormat(undefined, { style: "currency", currency: dashboardData.pendingPayment.currency }).format(dashboardData.pendingPayment.amountCents / 100)}</Text><Text style={styles.paymentHint}>Tap to review and pay securely with Revolut</Text></View>
           <Ionicons name="chevron-forward" size={22} color="#5B3DF5" />
