@@ -137,6 +137,7 @@ export async function fetchClientDashboardData(): Promise<ClientDashboardData> {
     supabase
       .from("portal_booking_list")
       .select("id, dog_name, service_name, starts_at, ends_at, location, status, cover_image_url")
+      .eq("client_id", client.id)
       .gte("starts_at", now)
       .order("starts_at", { ascending: true })
       .limit(3)
