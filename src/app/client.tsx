@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { RefreshControl, ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import ClientDashboardHeader from "@/components/client-dashboard/ClientDashboardHeader";
 import ClientRecentActivityList from "@/components/client-dashboard/ClientRecentActivityList";
 import ClientSectionCard from "@/components/client-dashboard/ClientSectionCard";
@@ -38,6 +39,8 @@ export default function ClientScreen() {
       }
     }
   }, []);
+
+  const { isRefreshing, onRefresh } = useAutoRefresh(() => loadDashboard({ showLoading: false }));
 
   useEffect(() => {
     loadDashboard();
@@ -140,6 +143,14 @@ export default function ClientScreen() {
   return (
     <View style={styles.container}>
       <ScrollView
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor="#5B3DF5"
+            colors={["#5B3DF5"]}
+          />
+        }
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >

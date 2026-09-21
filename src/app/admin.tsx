@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import DashboardHeader from "@/components/dashboard/DashBoardHeader";
 import PerformanceCard from "@/components/dashboard/PerformanceCard";
 import QuickActions from "@/components/dashboard/QuickActions";
@@ -32,6 +33,8 @@ export default function AdminScreen() {
       if (showLoading) setIsLoading(false);
     }
   }, []);
+
+  const { isRefreshing, onRefresh } = useAutoRefresh(() => loadDashboard({ showLoading: false }));
 
   useEffect(() => {
     loadDashboard();
@@ -83,7 +86,18 @@ export default function AdminScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+      <ScrollView
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor="#5B3DF5"
+            colors={["#5B3DF5"]}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}
+      >
         <DashboardHeader />
         <QuickActions onNewBooking={() => setActiveAction("booking")} onAddClient={() => setActiveAction("client")} onAddDog={() => setActiveAction("dog")} onCreateInvoice={() => setActiveAction("invoice")} />
         <PendingBookingRequestsCard requests={dashboardData.pendingBookingRequests} />

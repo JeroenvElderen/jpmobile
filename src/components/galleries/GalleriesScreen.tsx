@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import FloatingTabBar from "@/components/dashboard/FloatingTabBar";
 import { supabase } from "@/lib/supabase";
 import { buildGalleryStats, fetchAdminGalleries, fetchGalleryFormOptions, type Gallery, type GalleryClient, type GalleryDog } from "@/lib/galleriesData";
@@ -32,6 +33,8 @@ export default function GalleriesScreen() {
     }
   }, []);
 
+  const { isRefreshing, onRefresh } = useAutoRefresh(() => load());
+
   useEffect(() => {
     load();
     const channel = supabase
@@ -47,7 +50,18 @@ export default function GalleriesScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+      <ScrollView
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor="#5B3DF5"
+            colors={["#5B3DF5"]}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}
+      >
         <GalleriesHeader onCreate={() => setCreateOpen(true)} />
         <GalleryStatsGrid stats={buildGalleryStats(galleries)} />
         <GalleryFilters />

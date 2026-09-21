@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import FloatingTabBar from "@/components/dashboard/FloatingTabBar";
 import { deleteAdminClient, setAdminClientStatus, updateAdminClient } from "@/lib/adminDashboardData";
 import { fetchAdminClientsData, type ClientsData } from "@/lib/clientsData";
@@ -29,6 +30,8 @@ export default function ClientsScreen() {
       if (showLoading) setIsLoading(false);
     }
   }, []);
+
+  const { isRefreshing, onRefresh } = useAutoRefresh(() => loadClients({ showLoading: false }));
 
   useEffect(() => {
     loadClients();
@@ -129,7 +132,18 @@ export default function ClientsScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+      <ScrollView
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor="#5B3DF5"
+            colors={["#5B3DF5"]}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}
+      >
         <ClientsHeader />
         <ClientStatsGrid stats={clientsData.stats} />
         <ClientFilters searchQuery={searchQuery} onSearchChange={setSearchQuery} />
