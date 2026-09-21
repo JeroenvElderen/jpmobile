@@ -6,8 +6,9 @@ import * as WebBrowser from "expo-web-browser";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { RefreshControl, ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import ClientFloatingTabBar from "@/components/client-dashboard/ClientFloatingTabBar";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { deleteAccount } from "@/lib/accountDeletion";
@@ -91,6 +92,8 @@ export default function ClientProfileScreen() {
     }
   }, []);
 
+  const { isRefreshing, onRefresh } = useAutoRefresh(() => loadProfile({ showLoading: false }));
+
   useEffect(() => {
     loadProfile();
   }, [loadProfile]);
@@ -147,7 +150,18 @@ export default function ClientProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+      <ScrollView
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor="#5B3DF5"
+            colors={["#5B3DF5"]}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}
+      >
         <ProfileHeader />
         <ProfileSummary profile={profile} />
         {profileSections.map((section) => (

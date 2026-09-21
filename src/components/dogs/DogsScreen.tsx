@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import FloatingTabBar from "@/components/dashboard/FloatingTabBar";
 import { fetchAdminDogsData, type DogsData } from "@/lib/dogsData";
 import { supabase } from "@/lib/supabase";
@@ -27,6 +28,8 @@ export default function DogsScreen() {
       if (showLoading) setIsLoading(false);
     }
   }, []);
+
+  const { isRefreshing, onRefresh } = useAutoRefresh(() => loadDogs({ showLoading: false }));
 
   useEffect(() => {
     loadDogs();
@@ -64,7 +67,18 @@ export default function DogsScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+      <ScrollView
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor="#5B3DF5"
+            colors={["#5B3DF5"]}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}
+      >
         <DogsHeader />
         <DogStatsGrid stats={dogsData.stats} />
         <DogFilters />

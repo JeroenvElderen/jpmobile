@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import ClientFloatingTabBar from "@/components/client-dashboard/ClientFloatingTabBar";
 import { fetchClientBookingsData, type BookingsData } from "@/lib/bookingData";
 import { supabase } from "@/lib/supabase";
@@ -25,6 +26,8 @@ export default function ClientBookingsScreen() {
       if (showLoading) setIsLoading(false);
     }
   }, []);
+
+  const { isRefreshing, onRefresh } = useAutoRefresh(() => loadBookings({ showLoading: false }));
 
   useEffect(() => {
     loadBookings();
@@ -64,7 +67,18 @@ export default function ClientBookingsScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+      <ScrollView
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor="#5B3DF5"
+            colors={["#5B3DF5"]}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}
+      >
         <BookingsHeader />
         <ClientBookingListScreen bookings={bookingsData.bookings} stats={bookingsData.stats} onBookingChanged={() => loadBookings({ showLoading: false })} />
       </ScrollView>

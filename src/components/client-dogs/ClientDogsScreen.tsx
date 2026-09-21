@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import ClientFloatingTabBar from "@/components/client-dashboard/ClientFloatingTabBar";
 import { fetchClientDogsData, type DogsData } from "@/lib/dogsData";
 import { supabase } from "@/lib/supabase";
@@ -25,6 +26,8 @@ export default function ClientDogsScreen() {
       if (showLoading) setIsLoading(false);
     }
   }, []);
+
+  const { isRefreshing, onRefresh } = useAutoRefresh(() => loadDogs({ showLoading: false }));
 
   useEffect(() => {
     loadDogs();
@@ -64,7 +67,18 @@ export default function ClientDogsScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+      <ScrollView
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor="#5B3DF5"
+            colors={["#5B3DF5"]}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}
+      >
         <ClientDogsHeader />
         <ClientDogList dogs={dogsData.dogs} clientId={dogsData.clientId ?? ""} onDogChanged={() => loadDogs({ showLoading: false })} />
       </ScrollView>
